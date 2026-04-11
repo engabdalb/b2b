@@ -74,3 +74,124 @@
   letter-spacing: -0.02em;
   color: var(--text);
 }
+
+.metric-card__icon--invoice {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+}
+
+.metric-card__icon--package {
+  background: rgba(234, 88, 12, 0.12);
+  color: #ea580c;
+}
+
+.metric-card__icon--layers {
+  background: rgba(100, 116, 139, 0.14);
+  color: #475569;
+}
+
+.metric-card__icon--calendar {
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+}
+
+.dashboard-recent {
+  margin-top: 1.75rem;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 1.15rem 1.25rem 1.25rem;
+}
+
+.dashboard-recent__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.dashboard-recent__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.dashboard-recent__link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.dashboard-recent__link:hover {
+  text-decoration: underline;
+}
+
+.dashboard-recent__empty {
+  margin: 0;
+  padding: 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.dashboard-recent__scroll {
+  overflow-x: auto;
+}
+
+.dashboard-recent__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.dashboard-recent__table th,
+.dashboard-recent__table td {
+  padding: 0.55rem 0.65rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.dashboard-recent__table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.dashboard-recent__table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard-recent__num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.dashboard-recent__mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, monospace;
+  font-size: 0.88em;
+}
+
+.dashboard-recent__badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.dashboard-recent__badge--ok {
+  background: rgba(5, 150, 105, 0.12);
+  color: #047857;
+}
+
+.dashboard-recent__badge--muted {
+  background: var(--bg-muted, rgba(0, 0, 0, 0.05));
+  color: var(--text-secondary);
+  font-weight: 500;
+}

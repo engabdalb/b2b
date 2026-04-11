@@ -20,7 +20,7 @@ export class LoginPageComponent implements OnInit {
 
   readonly useMock = environment.useMockAuth || !environment.apiUrl?.trim();
 
-  email = 'admin@tenant.local';
+  email = 'admin@baklavacisadettin.com.tr';
   password = 'Admin123!';
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);

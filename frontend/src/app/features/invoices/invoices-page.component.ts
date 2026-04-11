@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { InvoiceDto } from '../../core/models/api.types';
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
+import { DealersMockService } from '../dealers/dealers-mock.service';
 import { InvoicesMockService } from './invoices-mock.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
@@ -16,16 +17,54 @@ import { UnitNamePipe } from '../../shared/pipes/unit-name.pipe';
 })
 export class InvoicesPageComponent implements OnInit {
   readonly invoicesData = inject(InvoicesMockService);
+  readonly dealersData = inject(DealersMockService);
   private readonly auth = inject(AuthService);
   protected readonly i18n = inject(I18nService);
 
   readonly isSuperAdmin = computed(() => this.auth.user().role === 'super_admin');
+
+  readonly needsDealerFilter = computed(() => {
+    const r = this.auth.user().role;
+    return r === 'super_admin' || r === 'viewer';
+  });
+
+  readonly filterDateFrom = signal('');
+  readonly filterDateTo = signal('');
+  readonly filterDealerId = signal('');
+  readonly filterStatus = signal<InvoiceDto['status'] | ''>('');
+  readonly filterSearch = signal('');
 
   readonly detailOpen = signal<InvoiceDto | null>(null);
   readonly statusBusyId = signal<string | null>(null);
   readonly statusError = signal<string | null>(null);
 
   ngOnInit(): void {
+    this.invoicesData.load();
+    if (this.needsDealerFilter()) {
+      this.dealersData.load();
+    }
+  }
+
+  applyFilters(): void {
+    this.invoicesData.load({
+      dateFrom: this.filterDateFrom().trim() || undefined,
+      dateTo: this.filterDateTo().trim() || undefined,
+      dealerId: this.needsDealerFilter() ? (this.filterDealerId().trim() || undefined) : undefined,
+      status: (this.filterStatus() || undefined) as InvoiceDto['status'] | undefined,
+      search: this.filterSearch().trim() || undefined,
+    });
+  }
+
+  clearFilters(): void {
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
+    this.filterDealerId.set('');
+    this.filterStatus.set('');
+    this.filterSearch.set('');
+    this.invoicesData.load(null);
+  }
+
+  refreshList(): void {
     this.invoicesData.load();
   }
 

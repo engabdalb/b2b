@@ -28,7 +28,7 @@ if ($statusRaw === null || $statusRaw === '' || !is_string($statusRaw)) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Durum gerekli.'], 400);
 }
 $status = $statusRaw;
-$allowedStatus = ['pending', 'confirmed', 'shipped'];
+$allowedStatus = ['pending', 'confirmed', 'shipped', 'cancelled'];
 if (!in_array($status, $allowedStatus, true)) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Geçersiz sipariş durumu.'], 400);
 }

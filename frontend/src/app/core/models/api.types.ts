@@ -9,6 +9,11 @@ export interface DealerDto {
   id: string;
   name: string;
   region: string;
+  /** Serbest metin (bağlantılı il/ilçe tablosu yok) */
+  il: string;
+  ilce: string;
+  konum: string;
+  telefon: string;
   active: boolean;
 }
 
@@ -56,7 +61,7 @@ export interface OrderLineDto {
 export interface OrderDto {
   id: string;
   dealerName: string;
-  status: 'pending' | 'confirmed' | 'shipped';
+  status: 'pending' | 'confirmed' | 'shipped' | 'cancelled';
   /** Matrah toplamı (KDV hariç) */
   total: number;
   /** Sipariş KDV toplamı */
@@ -125,6 +130,9 @@ export interface UserListDto {
   id: string;
   name: string;
   email: string;
+  /** API: super_admin | dealer | viewer (yoksa roleKey üzerinden çıkarılır) */
+  role?: 'super_admin' | 'dealer' | 'viewer';
   roleKey: string;
   active: boolean;
+  dealerId?: string | null;
 }

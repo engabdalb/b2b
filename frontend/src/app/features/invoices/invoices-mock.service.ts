@@ -41,22 +41,61 @@ interface InvoicesApiResponse {
   items?: InvoiceDto[];
 }
 
+export interface InvoicesListFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  dealerId?: string;
+  status?: InvoiceDto['status'];
+  search?: string;
+}
+
+function serializeInvoicesFilters(f: InvoicesListFilters): Record<string, string> {
+  const q: Record<string, string> = {};
+  const df = f.dateFrom?.trim();
+  const dt = f.dateTo?.trim();
+  const did = f.dealerId?.trim();
+  const sq = f.search?.trim();
+  if (df) {
+    q['date_from'] = df;
+  }
+  if (dt) {
+    q['date_to'] = dt;
+  }
+  if (did) {
+    q['dealer_id'] = did;
+  }
+  if (f.status) {
+    q['status'] = f.status;
+  }
+  if (sq) {
+    q['q'] = sq;
+  }
+  return q;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InvoicesMockService {
   private readonly api = inject(ApiService);
 
   readonly invoices = signal<InvoiceDto[]>([]);
 
+  private lastFilters: InvoicesListFilters = {};
+
   private hasApi(): boolean {
     return !!environment.apiUrl?.trim();
   }
 
-  load(): void {
+  load(filters?: Partial<InvoicesListFilters> | null): void {
+    if (filters === null) {
+      this.lastFilters = {};
+    } else if (filters !== undefined) {
+      this.lastFilters = { ...filters };
+    }
     if (!this.hasApi()) {
       this.invoices.set([]);
       return;
     }
-    this.api.get<InvoicesApiResponse>('b2b_invoices_get').subscribe({
+    this.api.get<InvoicesApiResponse>('b2b_invoices_get', serializeInvoicesFilters(this.lastFilters)).subscribe({
       next: (r) => this.invoices.set(withInvoiceTotals(r.items ?? [])),
       error: () => this.invoices.set([]),
     });

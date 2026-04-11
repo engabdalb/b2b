@@ -7,7 +7,7 @@
   </ng-container>
 </app-page-header>
 
-<section class="grid-metrics" aria-label="Özet metrikler">
+<section class="grid-metrics" [attr.aria-label]="'dashboard.metricsAria' | t">
   @for (m of metrics(); track m.labelKey) {
     <article class="metric-card">
       <div class="metric-card__top">
@@ -38,6 +38,36 @@
                 <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
               </svg>
             }
+            @case ('invoice') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="8" y1="13" x2="16" y2="13" />
+                <line x1="8" y1="17" x2="12" y2="17" />
+              </svg>
+            }
+            @case ('package') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+                <line x1="12" y1="22.08" x2="12" y2="12" />
+              </svg>
+            }
+            @case ('layers') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+            }
+            @case ('calendar') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            }
           }
         </span>
         @if (m.trendKey) {
@@ -49,5 +79,50 @@
       <h2 class="metric-card__label">{{ m.labelKey | t }}</h2>
       <p class="metric-card__value">{{ m.value }}</p>
     </article>
+  }
+</section>
+
+<section class="dashboard-recent" [attr.aria-label]="'dashboard.recentOrdersSection' | t">
+  <div class="dashboard-recent__head">
+    <h2 class="dashboard-recent__title">{{ 'dashboard.recentOrders' | t }}</h2>
+    <a *appCan="perm.ordersView" routerLink="/orders" class="dashboard-recent__link">{{ 'dashboard.viewAllOrders' | t }}</a>
+  </div>
+  @if (recentOrders().length === 0) {
+    <p class="dashboard-recent__empty">{{ 'dashboard.recentOrdersEmpty' | t }}</p>
+  } @else {
+    <div class="dashboard-recent__scroll">
+      <table class="dashboard-recent__table">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'orders.col.id' | t }}</th>
+            <th scope="col">{{ 'orders.col.dealer' | t }}</th>
+            <th scope="col">{{ 'orders.col.status' | t }}</th>
+            <th scope="col" class="dashboard-recent__num">{{ 'dashboard.col.totalIncVat' | t }}</th>
+            <th scope="col">{{ 'orders.col.date' | t }}</th>
+            <th scope="col">{{ 'dashboard.col.invoice' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of recentOrders(); track row.id) {
+            <tr>
+              <td><span class="dashboard-recent__mono">{{ row.id }}</span></td>
+              <td>{{ row.dealerName }}</td>
+              <td>{{ ('orders.status.' + row.status) | t }}</td>
+              <td class="dashboard-recent__num">
+                {{ row.totalIncVat | number: '1.2-2' : i18n.numberLocale() }} ₺
+              </td>
+              <td>{{ row.createdAt | date: 'dd.MM.yyyy HH:mm' : undefined : i18n.numberLocale() }}</td>
+              <td>
+                @if (row.invoiceId) {
+                  <span class="dashboard-recent__badge dashboard-recent__badge--ok">{{ row.invoiceId }}</span>
+                } @else {
+                  <span class="dashboard-recent__badge dashboard-recent__badge--muted">{{ 'dashboard.invoiceNone' | t }}</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   }
 </section>

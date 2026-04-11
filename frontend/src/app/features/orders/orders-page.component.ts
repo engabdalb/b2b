@@ -11,6 +11,7 @@ import { PermissionsService } from '../../core/services/permissions.service';
 import { DealersMockService } from '../dealers/dealers-mock.service';
 import { ProductsMockService } from '../products/products-mock.service';
 import { OrdersMockService } from './orders-mock.service';
+import { downloadOrdersXlsx, OrdersXlsxColumnLabels } from './export-orders-xlsx';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { UnitNamePipe } from '../../shared/pipes/unit-name.pipe';
@@ -41,6 +42,19 @@ export class OrdersPageComponent implements OnInit {
   protected readonly i18n = inject(I18nService);
 
   readonly isSuperAdmin = computed(() => this.auth.user().role === 'super_admin');
+
+  /** Bayi seçim filtresi: süper admin ve izleyici (API bayi rolünde zaten tek bayi). */
+  readonly needsDealerFilter = computed(() => {
+    const r = this.auth.user().role;
+    return r === 'super_admin' || r === 'viewer';
+  });
+
+  readonly filterDateFrom = signal('');
+  readonly filterDateTo = signal('');
+  readonly filterDealerId = signal('');
+  readonly filterStatus = signal<OrderDto['status'] | ''>('');
+  readonly filterInvoice = signal<'' | 'with' | 'without'>('');
+  readonly filterSearch = signal('');
 
   readonly detailOpen = signal<OrderDto | null>(null);
   readonly formOpen = signal(false);
@@ -149,9 +163,30 @@ export class OrdersPageComponent implements OnInit {
   ngOnInit(): void {
     this.ordersData.load();
     this.productsData.load();
-    if (this.isSuperAdmin()) {
+    if (this.needsDealerFilter()) {
       this.dealersData.load();
     }
+  }
+
+  applyFilters(): void {
+    this.ordersData.load({
+      dateFrom: this.filterDateFrom().trim() || undefined,
+      dateTo: this.filterDateTo().trim() || undefined,
+      dealerId: this.needsDealerFilter() ? (this.filterDealerId().trim() || undefined) : undefined,
+      status: (this.filterStatus() || undefined) as OrderDto['status'] | undefined,
+      invoice: this.filterInvoice() || undefined,
+      search: this.filterSearch().trim() || undefined,
+    });
+  }
+
+  clearFilters(): void {
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
+    this.filterDealerId.set('');
+    this.filterStatus.set('');
+    this.filterInvoice.set('');
+    this.filterSearch.set('');
+    this.ordersData.load(null);
   }
 
   private createLineGroup() {
@@ -429,9 +464,94 @@ export class OrdersPageComponent implements OnInit {
   canInvoice(order: OrderDto): boolean {
     return (
       this.permissions.has(Permission.ordersEdit) &&
+      order.status !== 'cancelled' &&
       !order.invoiceId &&
       order.lines.length > 0
     );
+  }
+
+  /** Son API yüklemesiyle uyumlu filtre özeti (Excel ilk sayfası). */
+  private buildExportFilterRows(): [string, string][] {
+    const f = this.ordersData.lastLoadFilters();
+    const t = (k: string) => this.i18n.translate(k);
+    const rows: [string, string][] = [];
+    rows.push([t('filters.dateFrom'), f.dateFrom?.trim() || '—']);
+    rows.push([t('filters.dateTo'), f.dateTo?.trim() || '—']);
+    if (this.needsDealerFilter()) {
+      const did = f.dealerId?.trim() ?? '';
+      let dealer: string;
+      if (did) {
+        const d = this.dealersData.dealers().find((x) => x.id === did);
+        dealer = d ? `${d.name} — ${d.region}` : did;
+      } else {
+        dealer = t('filters.allDealers');
+      }
+      rows.push([t('orders.col.dealer'), dealer]);
+    }
+    const st = f.status;
+    rows.push([t('orders.col.status'), st ? t(`orders.status.${st}`) : t('filters.allStatuses')]);
+    const inv = f.invoice;
+    let invLabel = t('filters.invoiceAny');
+    if (inv === 'with') {
+      invLabel = t('filters.invoiceWith');
+    } else if (inv === 'without') {
+      invLabel = t('filters.invoiceWithout');
+    }
+    rows.push([t('filters.invoiceLink'), invLabel]);
+    rows.push([t('filters.search'), f.search?.trim() || '—']);
+    return rows;
+  }
+
+  private exportColumnLabels(): OrdersXlsxColumnLabels {
+    const t = (k: string) => this.i18n.translate(k);
+    return {
+      sheetFilters: t('orders.export.sheetFilters'),
+      sheetOrders: t('orders.export.sheetOrders'),
+      sheetLines: t('orders.export.sheetLines'),
+      sheetSimple: t('orders.export.sheetSimple'),
+      filterKey: t('orders.export.filterKey'),
+      filterValue: t('orders.export.filterValue'),
+      orderId: t('orders.col.id'),
+      dealer: t('orders.col.dealer'),
+      linesCount: t('orders.col.lines'),
+      totalExVat: t('orders.col.total'),
+      vatTotal: t('orders.detailVatSum'),
+      totalIncVat: t('orders.detailTotalIncVat'),
+      date: t('orders.col.date'),
+      status: t('orders.col.status'),
+      invoiceId: t('invoices.col.id'),
+      invoiceStatus: t('invoices.col.status'),
+      product: t('orders.line.product'),
+      sku: t('orders.line.sku'),
+      unit: t('orders.line.unit'),
+      qty: t('orders.line.qty'),
+      unitPrice: t('orders.line.unitPrice'),
+      lineTotal: t('orders.line.lineTotal'),
+      vatPct: t('orders.line.vat'),
+      vatAmount: t('orders.line.vatAmount'),
+      lineTotalIncVat: t('orders.line.lineTotalIncVat'),
+      discount: t('orders.line.discount'),
+      simpleQty: t('orders.export.simpleQty'),
+    };
+  }
+
+  exportOrdersExcel(): void {
+    const list = this.ordersData.orders();
+    if (list.length === 0) {
+      return;
+    }
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const filename = `siparisler_${stamp}.xlsx`;
+
+    downloadOrdersXlsx(list, {
+      filterRows: this.buildExportFilterRows(),
+      labels: this.exportColumnLabels(),
+      orderStatus: (o) => this.i18n.translate(`orders.status.${o.status}`),
+      invoiceStatus: (inv) => this.i18n.translate(`invoices.status.${inv}`),
+      unitLabel: (line) => this.i18n.displayUnitName(line.unitCode ?? '', line.unit),
+    }, filename);
   }
 
   invoiceFromOrder(o: OrderDto): void {

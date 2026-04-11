@@ -36,8 +36,10 @@ $items = array_map(static function (array $r) use ($roleKey): array {
         'id' => (string) $r['id'],
         'name' => (string) $r['name'],
         'email' => (string) $r['email'],
+        'role' => (string) $r['role'],
         'roleKey' => $roleKey((string) $r['role']),
         'active' => (bool) $r['active'],
+        'dealerId' => $r['dealer_id'] !== null ? (string) $r['dealer_id'] : null,
     ];
 }, $rows);
 

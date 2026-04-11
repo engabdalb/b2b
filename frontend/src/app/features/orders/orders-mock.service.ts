@@ -43,22 +43,76 @@ interface OrdersApiResponse {
   items?: OrderDto[];
 }
 
+/** Sunucu sorgusu — GET query parametreleri */
+export interface OrdersListFilters {
+  dateFrom?: string;
+  dateTo?: string;
+  dealerId?: string;
+  status?: OrderDto['status'];
+  /** Aktif fatura (bekleyen veya onaylı) var / yok */
+  invoice?: 'with' | 'without';
+  search?: string;
+}
+
+function serializeOrdersFilters(f: OrdersListFilters): Record<string, string> {
+  const q: Record<string, string> = {};
+  const df = f.dateFrom?.trim();
+  const dt = f.dateTo?.trim();
+  const did = f.dealerId?.trim();
+  const sq = f.search?.trim();
+  if (df) {
+    q['date_from'] = df;
+  }
+  if (dt) {
+    q['date_to'] = dt;
+  }
+  if (did) {
+    q['dealer_id'] = did;
+  }
+  if (f.status) {
+    q['status'] = f.status;
+  }
+  if (f.invoice === 'with' || f.invoice === 'without') {
+    q['invoice'] = f.invoice;
+  }
+  if (sq) {
+    q['q'] = sq;
+  }
+  return q;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrdersMockService {
   private readonly api = inject(ApiService);
 
   readonly orders = signal<OrderDto[]>([]);
 
+  /** Son `load` ile API’ye giden filtreler (liste ile uyumlu; Excel özeti için). */
+  readonly lastLoadFilters = signal<OrdersListFilters>({});
+
+  private lastFilters: OrdersListFilters = {};
+
   private hasApi(): boolean {
     return !!environment.apiUrl?.trim();
   }
 
-  load(): void {
+  /**
+   * Filtreleri günceller ve listeyi yeniden yükler.
+   * Argümansız: son filtrelerle yenile. `null`: filtreleri sıfırla.
+   */
+  load(filters?: Partial<OrdersListFilters> | null): void {
+    if (filters === null) {
+      this.lastFilters = {};
+    } else if (filters !== undefined) {
+      this.lastFilters = { ...filters };
+    }
     if (!this.hasApi()) {
       this.orders.set([]);
+      this.lastLoadFilters.set({});
       return;
     }
-    this.api.get<OrdersApiResponse>('b2b_orders_get').subscribe({
+    this.lastLoadFilters.set({ ...this.lastFilters });
+    this.api.get<OrdersApiResponse>('b2b_orders_get', serializeOrdersFilters(this.lastFilters)).subscribe({
       next: (r) => this.orders.set(withTotals(r.items ?? [])),
       error: () => this.orders.set([]),
     });

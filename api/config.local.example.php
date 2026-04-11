@@ -6,7 +6,7 @@
 return [
     'db_host' => '127.0.0.1',
     'db_name' => 'abdull55_baklavaci_sadettin_b2b',
-    'db_user' => 'abdull55_baklavaci_sadettin',
+    'db_user' => 'abdull55_baklavaci_sadettin_b2b',
     'db_pass' => '0wiMuwOc7A1+',
     'jwt_secret' => 'b2b-dev-jwt-secret-degistirin',
 ];

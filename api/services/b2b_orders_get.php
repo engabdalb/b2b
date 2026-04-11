@@ -8,6 +8,16 @@ global $pdo;
 
 $auth = b2b_require_auth();
 
+/** @param non-empty-string $s */
+$ymd = static function (string $s): ?string {
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
+        return null;
+    }
+    $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $s);
+
+    return $dt instanceof \DateTimeImmutable && $dt->format('Y-m-d') === $s ? $s : null;
+};
+
 $sql = 'SELECT o.id AS internalId, o.external_id AS id, d.name AS dealerName, o.status, o.total,
                o.vat_total AS vatTotal, o.total_inc_vat AS totalIncVat, o.created_at AS createdAt,
                (SELECT i2.external_id FROM b2b_invoices i2
@@ -24,6 +34,44 @@ $params = [];
 if ($auth['role'] === 'dealer' && $auth['dealer_id'] !== null && $auth['dealer_id'] !== '') {
     $sql .= ' AND o.dealer_id = :did';
     $params[':did'] = (int) $auth['dealer_id'];
+} elseif (in_array($auth['role'], ['super_admin', 'viewer'], true)) {
+    $rawDealer = isset($_GET['dealer_id']) ? trim((string) $_GET['dealer_id']) : '';
+    if ($rawDealer !== '' && ctype_digit($rawDealer)) {
+        $sql .= ' AND o.dealer_id = :filter_did';
+        $params[':filter_did'] = (int) $rawDealer;
+    }
+}
+
+$df = isset($_GET['date_from']) ? $ymd(trim((string) $_GET['date_from'])) : null;
+$dt = isset($_GET['date_to']) ? $ymd(trim((string) $_GET['date_to'])) : null;
+if ($df !== null) {
+    $sql .= ' AND DATE(o.created_at) >= :date_from';
+    $params[':date_from'] = $df;
+}
+if ($dt !== null) {
+    $sql .= ' AND DATE(o.created_at) <= :date_to';
+    $params[':date_to'] = $dt;
+}
+
+$st = isset($_GET['status']) ? trim((string) $_GET['status']) : '';
+$allowedStatus = ['pending', 'confirmed', 'shipped', 'cancelled'];
+if ($st !== '' && in_array($st, $allowedStatus, true)) {
+    $sql .= ' AND o.status = :ost';
+    $params[':ost'] = $st;
+}
+
+$inv = isset($_GET['invoice']) ? trim((string) $_GET['invoice']) : '';
+if ($inv === 'with') {
+    $sql .= ' AND EXISTS (SELECT 1 FROM b2b_invoices ix WHERE ix.order_id = o.id AND ix.status IN (\'pending\',\'approved\'))';
+} elseif ($inv === 'without') {
+    $sql .= ' AND NOT EXISTS (SELECT 1 FROM b2b_invoices ix WHERE ix.order_id = o.id AND ix.status IN (\'pending\',\'approved\'))';
+}
+
+$q = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
+if ($q !== '') {
+    $sql .= ' AND (o.external_id LIKE :q1 OR d.name LIKE :q2)';
+    $params[':q1'] = '%' . $q . '%';
+    $params[':q2'] = '%' . $q . '%';
 }
 
 $sql .= ' ORDER BY o.created_at DESC, o.id DESC';

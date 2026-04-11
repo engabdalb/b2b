@@ -19,12 +19,14 @@ $routes = [
     'b2b_invoices_get' => ['file' => 'b2b_invoices_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
     'b2b_invoice_set_status' => ['file' => 'b2b_invoice_set_status.php', 'roles' => ['super_admin']],
     'b2b_dealers_get' => ['file' => 'b2b_dealers_get.php', 'roles' => ['super_admin', 'viewer']],
+    'b2b_dealers_save' => ['file' => 'b2b_dealers_save.php', 'roles' => ['super_admin']],
     'b2b_products_get' => ['file' => 'b2b_products_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
     'b2b_products_add' => ['file' => 'b2b_products_add.php', 'roles' => ['super_admin']],
     'b2b_products_update' => ['file' => 'b2b_products_update.php', 'roles' => ['super_admin']],
     'b2b_units_get' => ['file' => 'b2b_units_get.php', 'roles' => ['super_admin', 'viewer']],
     'b2b_units_add' => ['file' => 'b2b_units_add.php', 'roles' => ['super_admin']],
     'b2b_users_get' => ['file' => 'b2b_users_get.php', 'roles' => ['super_admin', 'viewer']],
+    'b2b_users_save' => ['file' => 'b2b_users_save.php', 'roles' => ['super_admin']],
 ];
 
 if (!isset($routes[$service])) {

@@ -19,7 +19,7 @@ if ($orderRef === null || $orderRef === '' || !is_string($orderRef)) {
 }
 
 $ordStmt = $pdo->prepare(
-    'SELECT o.id, o.dealer_id, o.total, o.vat_total AS vatTotal, o.total_inc_vat AS totalIncVat, o.tray_count AS trayCount
+    'SELECT o.id, o.dealer_id, o.status, o.total, o.vat_total AS vatTotal, o.total_inc_vat AS totalIncVat, o.tray_count AS trayCount
      FROM b2b_orders o
      WHERE o.external_id = :eid
      LIMIT 1',
@@ -28,6 +28,9 @@ $ordStmt->execute([':eid' => $orderRef]);
 $orderRow = $ordStmt->fetch(PDO::FETCH_ASSOC);
 if (!$orderRow) {
     json_response(['ok' => false, 'error' => 'not_found', 'message' => 'Sipariş bulunamadı.'], 404);
+}
+if (($orderRow['status'] ?? '') === 'cancelled') {
+    json_response(['ok' => false, 'error' => 'validation', 'message' => 'İptal edilmiş sipariş faturalandırılamaz.'], 400);
 }
 
 $orderId = (int) $orderRow['id'];

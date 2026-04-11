@@ -1,7 +1,185 @@
 <app-page-header titleKey="dealers.title" subtitleKey="dealers.subtitle">
   <ng-container *appCan="perm.dealersEdit">
-    <button type="button" class="btn btn--primary">{{ 'dealers.new' | t }}</button>
+    <button type="button" class="btn btn--primary" (click)="openNewDealer()">
+      {{ 'dealers.new' | t }}
+    </button>
   </ng-container>
 </app-page-header>
 
-<app-data-table [columns]="columns" [rows]="rows()" />
+<div class="dealers-table-wrap">
+  @if (dealersData.dealers().length === 0) {
+    <p class="dealers-table__empty">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="dealers-table-scroll">
+      <table class="dealers-table">
+        <thead>
+          <tr>
+            <th>{{ 'dealers.col.name' | t }}</th>
+            <th>{{ 'dealers.col.region' | t }}</th>
+            <th>{{ 'dealers.col.il' | t }}</th>
+            <th>{{ 'dealers.col.ilce' | t }}</th>
+            <th>{{ 'dealers.col.konum' | t }}</th>
+            <th>{{ 'dealers.col.telefon' | t }}</th>
+            <th>{{ 'dealers.col.active' | t }}</th>
+            <th *appCan="perm.dealersEdit" class="dealers-table__actions-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (d of dealersData.dealers(); track d.id) {
+            <tr>
+              <td>{{ d.name }}</td>
+              <td>{{ d.region }}</td>
+              <td>{{ d.il }}</td>
+              <td>{{ d.ilce }}</td>
+              <td>{{ d.konum }}</td>
+              <td>{{ d.telefon }}</td>
+              <td>{{ (d.active ? 'dealers.yes' : 'dealers.no') | t }}</td>
+              <td *appCan="perm.dealersEdit" class="dealers-table__actions">
+                <button type="button" class="btn btn--secondary btn--sm" (click)="openEditDealer(d)">
+                  {{ 'dealers.edit' | t }}
+                </button>
+                <button type="button" class="btn btn--primary btn--sm" (click)="openUserForDealer(d)">
+                  {{ 'dealers.createUser' | t }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (dealerFormOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeDealerForm()"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">
+        {{ (dealerForm.value.id ? 'dealers.formTitleEdit' : 'dealers.formTitleNew') | t }}
+      </h2>
+      <button type="button" class="icon-btn" (click)="closeDealerForm()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form class="modal-panel__body" [formGroup]="dealerForm" (ngSubmit)="submitDealer()">
+      @if (dealerFormError(); as fe) {
+        <p class="form-error">{{ errorText(fe) }}</p>
+      }
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.name' | t }}</span>
+        <input class="field__input" type="text" formControlName="name" autocomplete="organization" />
+        @if (dealerForm.controls.name.touched && dealerForm.controls.name.invalid) {
+          <span class="field__hint">{{ 'dealers.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.region' | t }}</span>
+        <input class="field__input" type="text" formControlName="region" autocomplete="off" />
+        @if (dealerForm.controls.region.touched && dealerForm.controls.region.invalid) {
+          <span class="field__hint">{{ 'dealers.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.il' | t }}</span>
+        <input class="field__input" type="text" formControlName="il" autocomplete="address-level1" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.ilce' | t }}</span>
+        <input class="field__input" type="text" formControlName="ilce" autocomplete="address-level2" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.konum' | t }}</span>
+        <input class="field__input" type="text" formControlName="konum" autocomplete="street-address" />
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'dealers.col.telefon' | t }}</span>
+        <input class="field__input" type="text" formControlName="telefon" autocomplete="tel" />
+      </label>
+
+      <label class="field field--checkbox">
+        <input type="checkbox" formControlName="active" />
+        <span>{{ 'dealers.col.active' | t }}</span>
+      </label>
+
+      <input type="hidden" formControlName="id" />
+
+      <div class="modal-panel__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeDealerForm()" [disabled]="dealerSaving()">
+          {{ 'dealers.cancel' | t }}
+        </button>
+        <button type="submit" class="btn btn--primary" [disabled]="dealerSaving()">
+          {{ (dealerSaving() ? 'dealers.saving' : 'common.save') | t }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (userFormOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeUserForm()"></div>
+  <div class="modal-panel modal-panel--wide" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <div>
+        <h2 class="modal-panel__title">{{ 'dealers.formUserTitle' | t }}</h2>
+        <p class="modal-panel__subtitle">{{ userContextDealerName() }}</p>
+        <p class="modal-panel__hint">{{ 'dealers.userRoleLocked' | t }}</p>
+      </div>
+      <button type="button" class="icon-btn" (click)="closeUserForm()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+
+    <form class="modal-panel__body" [formGroup]="userForm" (ngSubmit)="submitUserForDealer()">
+      @if (userFormError(); as ue) {
+        <p class="form-error">{{ errorText(ue) }}</p>
+      }
+
+      <label class="field">
+        <span class="field__label">{{ 'users.col.name' | t }}</span>
+        <input class="field__input" type="text" formControlName="display_name" autocomplete="name" />
+        @if (userForm.controls.display_name.touched && userForm.controls.display_name.invalid) {
+          <span class="field__hint">{{ 'users.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'users.col.email' | t }}</span>
+        <input class="field__input" type="email" formControlName="email" autocomplete="email" />
+        @if (userForm.controls.email.touched && userForm.controls.email.invalid) {
+          <span class="field__hint">{{ 'users.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'users.password' | t }}</span>
+        <input class="field__input" type="password" formControlName="password" autocomplete="new-password" />
+        <span class="field__hint field__hint--muted">{{ 'users.passwordNewHint' | t }}</span>
+      </label>
+
+      <label class="field field--checkbox">
+        <input type="checkbox" formControlName="active" />
+        <span>{{ 'users.col.active' | t }}</span>
+      </label>
+
+      <div class="modal-panel__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeUserForm()" [disabled]="userSaving()">
+          {{ 'users.cancel' | t }}
+        </button>
+        <button type="submit" class="btn btn--primary" [disabled]="userSaving()">
+          {{ (userSaving() ? 'users.saving' : 'common.save') | t }}
+        </button>
+      </div>
+    </form>
+  </div>
+}

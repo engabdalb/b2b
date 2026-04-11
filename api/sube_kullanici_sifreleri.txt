@@ -1,0 +1,43 @@
+Şube kullanıcıları — e-posta = giriş kullanıcı adı. Şifre: isim tabanlı slug + 4 haneli sayı.
+
+id	Şube / İsim	E-posta (kullanıcı adı)	Şifre
+1	TEZGAH	tezgah@baklavacisadettin.com.tr	tezgah7234
+2	MEHMET EMİN AKPULAT	mehmeteminakpulat@baklavacisadettin.com.tr	mehmeteminakpulat3493
+3	NURULLAH SİNCAROĞLU	nurullahsincaroglu@baklavacisadettin.com.tr	nurullahsincaroglu7688
+4	ÇETİN OĞUZ	cetinoguz@baklavacisadettin.com.tr	cetinoguz9961
+5	ALİ BAHADUR	alibahadur@baklavacisadettin.com.tr	alibahadur4555
+6	NİMET USTA	nimetusta@baklavacisadettin.com.tr	nimetusta3375
+7	SELMAN IRMAK (KIRŞEHİR)	selmanirmak@baklavacisadettin.com.tr	selmanirmak2540
+8	ŞÜKRÜ AKINCI	sukruakinci@baklavacisadettin.com.tr	sukruakinci4890
+9	ALİ GÜL ADANA	aliguladana@baklavacisadettin.com.tr	aliguladana9317
+10	İBRAHİM TEKİN (İZMİR)	ibrahimtekin@baklavacisadettin.com.tr	ibrahimtekin7376
+11	AYŞE SERT (VİRANŞEHİR)	aysesert@baklavacisadettin.com.tr	aysesert3629
+12	YENİ ŞÜBE	yenisube@baklavacisadettin.com.tr	yenisube4780
+13	MASUM ŞAHİN (CEYLANPINAR)	masumsahin@baklavacisadettin.com.tr	masumsahin2788
+14	DERVİŞ GÜNEŞ (CİZRE)	dervisgunes@baklavacisadettin.com.tr	dervisgunes2073
+15	HEZVİN ASLAN (3 YOL ŞÜBE)	hezvinaslan@baklavacisadettin.com.tr	hezvinaslan1844
+16	MAHMUT TUNÇ (BAHÇELİEVLER)	mahmuttunc@baklavacisadettin.com.tr	mahmuttunc6564
+17	KEREM BOZKURT (SAMSUN)	kerembozkurt@baklavacisadettin.com.tr	kerembozkurt3721
+18	SEHER KIRSAÇ (TARSUS)	seherkirsac@baklavacisadettin.com.tr	seherkirsac7341
+19	SZR ŞÜBE	szrsube@baklavacisadettin.com.tr	szrsube8214
+20	REŞAT KILINÇ	resatkilinc@baklavacisadettin.com.tr	resatkilinc1115
+21	İSTASYON ŞÜBE	istasyonsube@baklavacisadettin.com.tr	istasyonsube3292
+22	ABDAN 1	abdan1@baklavacisadettin.com.tr	abdan16950
+23	ABDAN 2	abdan2@baklavacisadettin.com.tr	abdan21998
+24	ADNAN NOKTA	adnannokta@baklavacisadettin.com.tr	adnannokta5608
+25	ERDEMLER	erdemler@baklavacisadettin.com.tr	erdemler1321
+26	FAİZ	faiz@baklavacisadettin.com.tr	faiz2179
+27	TACETTİN	tacettin@baklavacisadettin.com.tr	tacettin9708
+28	YUNUS EMRE	yunusemre@baklavacisadettin.com.tr	yunusemre8297
+29	ADA PASTANESİ	adapastanesi@baklavacisadettin.com.tr	adapastanesi4724
+30	AVŞİN EKMEK FIRINI	avsinekmekfirini@baklavacisadettin.com.tr	avsinekmekfirini3850
+31	TALİ DÜNYASI	talidunyasi@baklavacisadettin.com.tr	talidunyasi8132
+32	ŞAHİN TOKİ	sahintoki@baklavacisadettin.com.tr	sahintoki9348
+33	CELAL GÖKÇE	celalgokce@baklavacisadettin.com.tr	celalgokce7725
+34	İMALAT	imalat@baklavacisadettin.com.tr	imalat3198
+35	ENGİN USTA	enginusta@baklavacisadettin.com.tr	enginusta7781
+36	NESRİN	nesrin@baklavacisadettin.com.tr	nesrin9571
+
+Yönetici / izleyici (schema’daki örnek; değişmedi):
+admin@baklavacisadettin.com.tr — Admin123!
+viewer@baklavacisadettin.com.tr — View123!

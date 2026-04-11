@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
@@ -15,8 +15,16 @@ export class ApiService {
     return `${base}/routes/api.php/${serviceName}`;
   }
 
-  get<T>(serviceName: string): Observable<T> {
-    return this.http.get<T>(this.serviceUrl(serviceName));
+  get<T>(serviceName: string, query?: Record<string, string | number | boolean>): Observable<T> {
+    let params = new HttpParams();
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== null && String(v) !== '') {
+          params = params.set(k, String(v));
+        }
+      }
+    }
+    return this.http.get<T>(this.serviceUrl(serviceName), { params });
   }
 
   post<T>(serviceName: string, body: unknown): Observable<T> {

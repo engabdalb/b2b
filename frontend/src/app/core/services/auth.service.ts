@@ -9,14 +9,14 @@ import { ApiService } from './api.service';
 const MOCK_USERS: Record<Role, User> = {
   super_admin: {
     id: '1',
-    email: 'admin@tenant.local',
+    email: 'admin@baklavacisadettin.com.tr',
     displayName: 'Merkez Yönetici',
     role: 'super_admin',
     avatarInitials: 'MY',
   },
   dealer: {
     id: '2',
-    email: 'bayi@tenant.local',
+    email: 'bayi@baklavacisadettin.com.tr',
     displayName: 'Bayi Sorumlusu',
     role: 'dealer',
     dealerId: '2',
@@ -24,7 +24,7 @@ const MOCK_USERS: Record<Role, User> = {
   },
   viewer: {
     id: '3',
-    email: 'viewer@tenant.local',
+    email: 'viewer@baklavacisadettin.com.tr',
     displayName: 'İzleyici Kullanıcı',
     role: 'viewer',
     avatarInitials: 'İK',

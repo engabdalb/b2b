@@ -8,7 +8,7 @@ global $pdo;
 
 $auth = b2b_require_auth();
 
-$sql = 'SELECT id, name, region, active FROM b2b_dealers WHERE 1=1';
+$sql = 'SELECT id, name, region, il, ilce, konum, telefon, active FROM b2b_dealers WHERE 1=1';
 $params = [];
 
 if ($auth['role'] === 'dealer' && $auth['dealer_id'] !== null && $auth['dealer_id'] !== '') {
@@ -27,6 +27,10 @@ $items = array_map(static function (array $r): array {
         'id' => (string) $r['id'],
         'name' => (string) $r['name'],
         'region' => (string) $r['region'],
+        'il' => (string) $r['il'],
+        'ilce' => (string) $r['ilce'],
+        'konum' => (string) $r['konum'],
+        'telefon' => (string) $r['telefon'],
         'active' => (bool) $r['active'],
     ];
 }, $rows);

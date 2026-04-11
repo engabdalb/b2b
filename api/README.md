@@ -5,7 +5,8 @@
 ## Kurulum
 
 1. `config.local.example.php` dosyasını `config.local.php` olarak kopyalayın ve MySQL şifresini girin.
-2. `schema.sql` dosyasını hedef veritabanında (ör. `abdull55_sadettin_menu`) çalıştırın.
+2. `schema.sql` dosyasını hedef veritabanında (ör. `abdull55_sadettin_menu`) çalıştırın.  
+   Mevcut bir veritabanında `b2b_dealers` tablosu zaten varsa ve yeni sütunlar yoksa: `migrations/b2b_dealers_add_il_ilce_konum_telefon.sql` dosyasını bir kez çalıştırın; ardından `schema.sql` içindeki `INSERT INTO b2b_dealers ... ON DUPLICATE KEY UPDATE` bloğunu veya eşdeğer bir `UPDATE` ile adres/telefon alanlarını doldurun.
 3. Angular `src/environments/environment.ts` içinde `apiUrl`: `http://127.0.0.1/b2b/api`
 
 ## Uç noktalar (Peakik gibi)
@@ -34,11 +35,10 @@
 
 ## Örnek kullanıcılar (schema.sql ile)
 
-- `admin@tenant.local` / `Admin123!` — süper admin (tüm bayiler, tüm siparişler)  
-- `bayi.merkez@tenant.local` / `Bayi123!` — bayi, `dealer_id = 1` (yalnızca kendi siparişleri)  
-- `bayi.ankara@tenant.local` / `Bayi123!` — bayi, `dealer_id = 2`  
-- `bayi.izmir@tenant.local` / `Bayi123!` — bayi, `dealer_id = 3`  
-- `viewer@tenant.local` / `View123!` — izleyici  
+- `admin@baklavacisadettin.com.tr` / `Admin123!` — süper admin (tüm bayiler, tüm siparişler)  
+- `tezgah@baklavacisadettin.com.tr` — bayi örneği, `dealer_id = 1` (TEZGAH); şifre `api/sube_kullanici_sifreleri.txt`  
+- `viewer@baklavacisadettin.com.tr` / `View123!` — izleyici  
+- Diğer şubeler: `slug@baklavacisadettin.com.tr` — liste ve şifreler `api/sube_kullanici_sifreleri.txt`  
 
 ## Çoklu bayi (3 … 100+)
 
