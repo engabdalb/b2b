@@ -1,0 +1,80 @@
+<app-page-header titleKey="units.title" subtitleKey="units.subtitle">
+  <ng-container *appCan="perm.unitsEdit">
+    <button type="button" class="btn btn--primary" (click)="openNew()">{{ 'units.new' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+<div class="units-table-wrap">
+  @if (data.units().length === 0) {
+    <p class="units-table__empty">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="units-table-scroll">
+      <table class="units-table">
+        <thead>
+          <tr>
+            <th>{{ 'units.col.code' | t }}</th>
+            <th>{{ 'units.col.display' | t }}</th>
+            <th>{{ 'units.col.sort' | t }}</th>
+            <th>{{ 'units.col.active' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of data.units(); track u.id) {
+            <tr [class.units-table__row--inactive]="!u.active">
+              <td><code>{{ u.code }}</code></td>
+              <td>{{ { code: u.code, name: u.name } | unitName }}</td>
+              <td>{{ u.sortOrder }}</td>
+              <td>{{ (u.active ? 'dealers.yes' : 'dealers.no') | t }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (formOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeForm()"></div>
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">{{ 'units.formTitleNew' | t }}</h2>
+      <button type="button" class="icon-btn" (click)="closeForm()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <form class="modal-panel__body" [formGroup]="form" (ngSubmit)="submit()">
+      @if (formError(); as fe) {
+        <p class="form-error">{{ errorText(fe) }}</p>
+      }
+      <label class="field">
+        <span class="field__label">{{ 'units.col.code' | t }}</span>
+        <input class="field__input" type="text" formControlName="code" autocomplete="off" />
+        @if (form.controls.code.touched && form.controls.code.invalid) {
+          <span class="field__hint">{{ 'units.codeHint' | t }}</span>
+        }
+      </label>
+      <label class="field">
+        <span class="field__label">{{ 'units.col.name' | t }}</span>
+        <input class="field__input" type="text" formControlName="name" autocomplete="off" />
+        <span class="field__hint">{{ 'units.nameHint' | t }}</span>
+        @if (form.controls.name.touched && form.controls.name.invalid) {
+          <span class="field__hint">{{ 'products.required' | t }}</span>
+        }
+      </label>
+      <label class="field">
+        <span class="field__label">{{ 'units.col.sort' | t }}</span>
+        <input class="field__input" type="number" formControlName="sort_order" min="0" step="1" />
+      </label>
+      <div class="modal-panel__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeForm()" [disabled]="saving()">
+          {{ 'products.cancel' | t }}
+        </button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? ('products.saving' | t) : ('common.save' | t) }}
+        </button>
+      </div>
+    </form>
+  </div>
+}

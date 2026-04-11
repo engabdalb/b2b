@@ -1,0 +1,17 @@
+<div class="app-shell" [class.app-shell--sidebar-collapsed]="layoutUi.sidebarCollapsed()">
+  <app-sidebar />
+  @if (layoutUi.mobileNavOpen()) {
+    <div
+      class="app-shell__backdrop"
+      role="presentation"
+      (click)="layoutUi.closeMobileNav()"
+      aria-hidden="true"
+    ></div>
+  }
+  <div class="app-shell__main">
+    <app-topbar />
+    <main class="app-shell__content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

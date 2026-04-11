@@ -1,0 +1,18 @@
+<app-page-header titleKey="settings.title" subtitleKey="settings.subtitle">
+  <ng-container *appCan="perm.settingsEdit">
+    <button type="button" class="btn btn--primary">{{ 'settings.save' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+<div class="settings-card">
+  <label class="field">
+    <span class="field__label">{{ 'brand.name' | t }}</span>
+    <input
+      class="field__input"
+      name="tenantName"
+      [(ngModel)]="tenantName"
+      [readonly]="auth.isViewer()"
+    />
+  </label>
+  <p class="hint">{{ 'settings.placeholder' | t }}</p>
+</div>

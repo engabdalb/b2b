@@ -1,0 +1,7 @@
+<app-page-header titleKey="users.title" subtitleKey="users.subtitle">
+  <ng-container *appCan="perm.usersEdit">
+    <button type="button" class="btn btn--primary">{{ 'users.new' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+<app-data-table [columns]="columns" [rows]="rows()" />

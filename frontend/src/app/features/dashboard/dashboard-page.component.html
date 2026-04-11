@@ -1,0 +1,53 @@
+<app-page-header titleKey="dashboard.title" subtitleKey="dashboard.subtitle">
+  <ng-container *appCan="perm.reportsExport">
+    <button type="button" class="btn btn--secondary">{{ 'common.export' | t }}</button>
+  </ng-container>
+  <ng-container *appCan="perm.ordersCreate">
+    <button type="button" class="btn btn--primary">{{ 'orders.new' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+<section class="grid-metrics" aria-label="Özet metrikler">
+  @for (m of metrics(); track m.labelKey) {
+    <article class="metric-card">
+      <div class="metric-card__top">
+        <span class="metric-card__icon" [class]="'metric-card__icon--' + m.icon">
+          @switch (m.icon) {
+            @case ('clock') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            }
+            @case ('users') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+            }
+            @case ('cart') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="9" cy="21" r="1" />
+                <circle cx="20" cy="21" r="1" />
+                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
+              </svg>
+            }
+            @case ('money') {
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23" />
+                <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+              </svg>
+            }
+          }
+        </span>
+        @if (m.trendKey) {
+          <span class="trend" [class.trend--up]="m.trendUp" [class.trend--down]="!m.trendUp">
+            {{ m.trendKey | t: m.trendParams }}
+          </span>
+        }
+      </div>
+      <h2 class="metric-card__label">{{ m.labelKey | t }}</h2>
+      <p class="metric-card__value">{{ m.value }}</p>
+    </article>
+  }
+</section>

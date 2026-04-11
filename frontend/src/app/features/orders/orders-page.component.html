@@ -1,0 +1,431 @@
+<app-page-header titleKey="orders.title" subtitleKey="orders.subtitle">
+  <ng-container *appCan="perm.ordersCreate">
+    <button type="button" class="btn btn--primary" (click)="openNew()">{{ 'orders.new' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+@if (invoiceError(); as invErr) {
+  <p class="orders-banner orders-banner--error">{{ errorText(invErr) }}</p>
+}
+
+<div class="orders-table-wrap">
+  @if (ordersData.orders().length === 0) {
+    <p class="orders-table__empty">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="orders-table-scroll">
+      <table class="orders-table">
+        <thead>
+          <tr>
+            <th>{{ 'orders.col.id' | t }}</th>
+            <th>{{ 'orders.col.dealer' | t }}</th>
+            <th>{{ 'orders.col.lines' | t }}</th>
+            <th>{{ 'orders.col.total' | t }}</th>
+            <th>{{ 'orders.col.date' | t }}</th>
+            <th>{{ 'orders.col.status' | t }}</th>
+            <th class="orders-table__actions-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (o of ordersData.orders(); track o.id) {
+            <tr>
+              <td>{{ o.id }}</td>
+              <td>{{ o.dealerName }}</td>
+              <td>{{ o.lines.length }}</td>
+              <td>{{ o.total | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+              <td>{{ o.createdAt }}</td>
+              <td>{{ ('orders.status.' + o.status) | t }}</td>
+              <td class="orders-table__actions">
+                <div class="orders-table__action-btns">
+                  <button type="button" class="btn btn--secondary btn--sm" (click)="openDetail(o)">
+                    {{ 'orders.detail' | t }}
+                  </button>
+                  <ng-container *appCan="perm.ordersEdit">
+                    <button type="button" class="btn btn--primary btn--sm" (click)="openEdit(o)">
+                      {{ 'orders.edit' | t }}
+                    </button>
+                    @if (canInvoice(o)) {
+                      <button
+                        type="button"
+                        class="btn btn--secondary btn--sm"
+                        [disabled]="invoicingOrderId() === o.id"
+                        (click)="invoiceFromOrder(o)"
+                      >
+                        {{ 'orders.invoice' | t }}
+                      </button>
+                    }
+                  </ng-container>
+                  @if (o.invoiceId) {
+                    <span class="orders-table__invoice-pill" [title]="'orders.invoiceLinkedHint' | t">
+                      {{ o.invoiceId }}
+                      @if (o.invoiceStatus) {
+                        <span class="orders-table__invoice-pill-status">
+                          ({{ ('invoices.status.' + o.invoiceStatus) | t }})
+                        </span>
+                      }
+                    </span>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (detailOpen(); as d) {
+  <div class="modal-backdrop" role="presentation" (click)="closeDetail()"></div>
+  <div class="modal-panel modal-panel--lg" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">{{ 'orders.detailTitle' | t }} — {{ d.id }}</h2>
+      <button type="button" class="icon-btn" (click)="closeDetail()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="modal-panel__body">
+      <p class="orders-detail__meta">
+        <span>{{ d.dealerName }}</span>
+        <span class="orders-detail__sep">·</span>
+        <span>{{ ('orders.status.' + d.status) | t }}</span>
+        <span class="orders-detail__sep">·</span>
+        <span>{{ d.createdAt }}</span>
+      </p>
+      <div class="orders-lines-wrap">
+        <table class="orders-lines">
+          <thead>
+            <tr>
+              <th>{{ 'orders.line.product' | t }}</th>
+              <th>{{ 'orders.line.sku' | t }}</th>
+              <th>{{ 'orders.line.unit' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.qty' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.unitPrice' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.lineTotal' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.vat' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.vatAmount' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.lineTotalIncVat' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of d.lines; track line.id) {
+              <tr>
+                <td>{{ line.name }}</td>
+                <td>{{ line.sku }}</td>
+                <td>{{ { code: line.unitCode ?? '', name: line.unit } | unitName }}</td>
+                <td class="orders-lines__num">{{ line.quantity | number: '1.0-3' : i18n.numberLocale() }}</td>
+                <td class="orders-lines__num">{{ line.unitPrice | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+                <td class="orders-lines__num">{{ line.lineTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+                <td class="orders-lines__num">
+                  @if (line.vatRate != null) {
+                    %{{ line.vatRate | number: '1.0-2' : i18n.numberLocale() }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="orders-lines__num">
+                  @if (line.vatAmount > 0) {
+                    {{ line.vatAmount | number: '1.2-2' : i18n.numberLocale() }} ₺
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="orders-lines__num">{{ line.lineTotalIncVat | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (hasLineDiscount(d)) {
+        <p class="orders-detail__hint">{{ 'orders.lineDiscountHint' | t }}</p>
+      }
+      <div class="orders-detail__totals">
+        <p class="orders-detail__total">
+          <span class="orders-detail__total-label">{{ 'orders.detailTotalExVat' | t }}</span>
+          <strong>{{ d.total | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+        </p>
+        @if (d.vatTotal > 0) {
+          <p class="orders-detail__total orders-detail__total--muted">
+            <span class="orders-detail__total-label">{{ 'orders.detailVatSum' | t }}</span>
+            <span>{{ d.vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+          </p>
+          <p class="orders-detail__total orders-detail__total--grand">
+            <span class="orders-detail__total-label">{{ 'orders.detailTotalIncVat' | t }}</span>
+            <strong>{{ d.totalIncVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+          </p>
+        }
+      </div>
+      <div class="orders-detail__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeDetail()">{{ 'common.close' | t }}</button>
+        <ng-container *appCan="perm.ordersEdit">
+          <button type="button" class="btn btn--primary" (click)="openEdit(d)">{{ 'orders.edit' | t }}</button>
+          @if (canInvoice(d)) {
+            <button
+              type="button"
+              class="btn btn--secondary"
+              [disabled]="invoicingOrderId() === d.id"
+              (click)="invoiceFromOrder(d)"
+            >
+              {{ 'orders.invoice' | t }}
+            </button>
+          }
+        </ng-container>
+        @if (d.invoiceId) {
+          <p class="orders-detail__invoice-note">
+            {{ 'orders.invoiceLinked' | t }}:
+            <strong>{{ d.invoiceId }}</strong>
+            @if (d.invoiceStatus) {
+              ({{ ('invoices.status.' + d.invoiceStatus) | t }})
+            }
+          </p>
+        }
+      </div>
+    </div>
+  </div>
+}
+
+@if (formOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeForm()"></div>
+  <div class="modal-panel modal-panel--lg" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">{{ 'orders.formTitleNew' | t }}</h2>
+      <button type="button" class="icon-btn" (click)="closeForm()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <form class="modal-panel__body" [formGroup]="newOrderForm" (ngSubmit)="submitNew()">
+      @if (isSuperAdmin()) {
+        <label class="field">
+          <span class="field__label">{{ 'orders.col.dealer' | t }}</span>
+          <select class="field__input" formControlName="dealerId">
+            <option value="">{{ 'orders.pickDealer' | t }}</option>
+            @for (dealer of dealersData.dealers(); track dealer.id) {
+              <option [value]="dealer.id">{{ dealer.name }} — {{ dealer.region }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <div class="orders-form-lines">
+        <div class="orders-form-lines__head">
+          <span class="field__label">{{ 'orders.formLines' | t }}</span>
+          <button type="button" class="btn btn--secondary btn--sm" (click)="addLine()">{{ 'orders.addLine' | t }}</button>
+        </div>
+        <div class="orders-form-line orders-form-line--hdr" aria-hidden="true">
+          <span class="orders-form-line__hdr">{{ 'orders.line.product' | t }}</span>
+          <span class="orders-form-line__hdr">{{ 'orders.line.qty' | t }}</span>
+          <span class="orders-form-line__hdr">{{ 'orders.line.vat' | t }}</span>
+          <span class="orders-form-line__hdr">{{ 'orders.line.lineTotal' | t }}</span>
+          <span class="orders-form-line__hdr orders-form-line__hdr--action"></span>
+        </div>
+        @for (line of lineControls.controls; track $index; let i = $index) {
+          <div class="orders-form-line" [formGroup]="$any(line)">
+            <select class="field__input" formControlName="productId">
+              <option value="">{{ 'orders.pickProduct' | t }}</option>
+              @for (p of productsData.products(); track p.id) {
+                <option [value]="p.id">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }} — {{ p.name }} ({{ p.sku }}) — {{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</option>
+              }
+            </select>
+            <input
+              class="field__input orders-form-line__qty"
+              type="number"
+              min="0"
+              step="1"
+              formControlName="quantity"
+            />
+            <input
+              class="field__input orders-form-line__vat"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              formControlName="vatRate"
+              [attr.aria-label]="'orders.line.vat' | t"
+              [attr.placeholder]="'orders.vatOptionalPlaceholder' | t"
+            />
+            <span
+              class="orders-form-line__total"
+              [class.orders-form-line__total--empty]="orderFormTotals().lines[i].lineTotal == null"
+            >
+              @if (orderFormTotals().lines[i].lineTotal != null) {
+                {{ orderFormTotals().lines[i].lineTotal! | number: '1.2-2' : i18n.numberLocale() }} ₺
+              } @else {
+                —
+              }
+            </span>
+            @if (lineControls.length > 1) {
+              <button type="button" class="btn btn--ghost-light btn--sm" (click)="removeLine(i)">{{ 'orders.removeLine' | t }}</button>
+            } @else {
+              <span class="orders-form-line__remove-spacer"></span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (orderFormTotals().subtotal > 0) {
+        <div class="orders-form-summary">
+          <p class="orders-form-summary__row">
+            <span>{{ 'orders.formTotalExVat' | t }}</span>
+            <strong>{{ orderFormTotals().subtotal | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+          </p>
+          @if (orderFormTotals().vatTotal > 0) {
+            <p class="orders-form-summary__row orders-form-summary__row--muted">
+              <span>{{ 'orders.formVatEstimated' | t }}</span>
+              <span>{{ orderFormTotals().vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+            </p>
+            <p class="orders-form-summary__row">
+              <span>{{ 'orders.formTotalIncVatEstimated' | t }}</span>
+              <strong>{{ orderFormTotals().grandWithVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+            </p>
+          }
+        </div>
+      }
+
+      @if (formError()) {
+        <p class="form-error">{{ errorText(formError()!) }}</p>
+      }
+
+      <div class="modal-panel__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeForm()">{{ 'orders.cancel' | t }}</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? ('orders.saving' | t) : ('common.save' | t) }}
+        </button>
+      </div>
+    </form>
+  </div>
+}
+
+@if (editFormOpen()) {
+  <div class="modal-backdrop" role="presentation" (click)="closeEditForm()"></div>
+  <div class="modal-panel modal-panel--xl" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">
+        {{ 'orders.formTitleEdit' | t }}
+        @if (editingOrderId(); as eid) {
+          <span class="modal-panel__title-sub">— {{ eid }}</span>
+        }
+      </h2>
+      <button type="button" class="icon-btn" (click)="closeEditForm()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <form class="modal-panel__body orders-edit-form" [formGroup]="editOrderForm" (ngSubmit)="submitEdit()">
+      @if (editOrderMeta(); as meta) {
+        <p class="orders-edit-form__meta">
+          <span>{{ meta.dealerName }}</span>
+          <span class="orders-detail__sep">·</span>
+          <span>{{ meta.createdAt }}</span>
+        </p>
+      }
+
+      <label class="field">
+        <span class="field__label">{{ 'orders.statusLabel' | t }}</span>
+        <select class="field__input" formControlName="status">
+          <option value="pending">{{ 'orders.status.pending' | t }}</option>
+          <option value="confirmed">{{ 'orders.status.confirmed' | t }}</option>
+          <option value="shipped">{{ 'orders.status.shipped' | t }}</option>
+        </select>
+      </label>
+
+      <div class="orders-form-lines">
+        <div class="orders-form-lines__head">
+          <span class="field__label">{{ 'orders.editFormLines' | t }}</span>
+          <button type="button" class="btn btn--secondary btn--sm" (click)="addEditLine()">{{ 'orders.addLine' | t }}</button>
+        </div>
+        <div class="orders-edit-line orders-edit-line--hdr" aria-hidden="true">
+          <span class="orders-edit-line__hdr">{{ 'orders.line.product' | t }}</span>
+          <span class="orders-edit-line__hdr">{{ 'orders.line.qty' | t }}</span>
+          <span class="orders-edit-line__hdr">{{ 'orders.line.vat' | t }}</span>
+          <span class="orders-edit-line__hdr">{{ 'orders.line.discount' | t }}</span>
+          <span class="orders-edit-line__hdr">{{ 'orders.line.lineTotal' | t }}</span>
+          <span class="orders-edit-line__hdr orders-edit-line__hdr--action"></span>
+        </div>
+        @for (line of editLineControls.controls; track $index; let i = $index) {
+          <div class="orders-edit-line" [formGroup]="$any(line)">
+            <select class="field__input" formControlName="productId">
+              <option value="">{{ 'orders.pickProduct' | t }}</option>
+              @for (p of productsData.products(); track p.id) {
+                <option [value]="p.id">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }} — {{ p.name }} ({{ p.sku }}) — {{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</option>
+              }
+            </select>
+            <input
+              class="field__input orders-edit-line__qty"
+              type="number"
+              min="0"
+              step="0.001"
+              formControlName="quantity"
+            />
+            <input
+              class="field__input orders-edit-line__vat"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              formControlName="vatRate"
+              [attr.aria-label]="'orders.line.vat' | t"
+              [attr.placeholder]="'orders.vatOptionalPlaceholder' | t"
+            />
+            <input
+              class="field__input orders-edit-line__disc"
+              type="number"
+              min="0"
+              step="0.01"
+              formControlName="discountAmount"
+              [attr.aria-label]="'orders.line.discount' | t"
+            />
+            <span
+              class="orders-edit-line__total"
+              [class.orders-edit-line__total--empty]="editOrderFormTotals().lines[i].lineTotal == null"
+            >
+              @if (editOrderFormTotals().lines[i].lineTotal != null) {
+                {{ editOrderFormTotals().lines[i].lineTotal! | number: '1.2-2' : i18n.numberLocale() }} ₺
+              } @else {
+                —
+              }
+            </span>
+            @if (editLineControls.length > 1) {
+              <button type="button" class="btn btn--ghost-light btn--sm" (click)="removeEditLine(i)">{{ 'orders.removeLine' | t }}</button>
+            } @else {
+              <span class="orders-form-line__remove-spacer"></span>
+            }
+          </div>
+        }
+      </div>
+
+      @if (editOrderFormTotals().subtotal > 0) {
+        <div class="orders-form-summary">
+          <p class="orders-form-summary__row">
+            <span>{{ 'orders.formTotalExVat' | t }}</span>
+            <strong>{{ editOrderFormTotals().subtotal | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+          </p>
+          @if (editOrderFormTotals().vatTotal > 0) {
+            <p class="orders-form-summary__row orders-form-summary__row--muted">
+              <span>{{ 'orders.formVatEstimated' | t }}</span>
+              <span>{{ editOrderFormTotals().vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+            </p>
+            <p class="orders-form-summary__row">
+              <span>{{ 'orders.formTotalIncVatEstimated' | t }}</span>
+              <strong>{{ editOrderFormTotals().grandWithVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+            </p>
+          }
+        </div>
+      }
+
+      @if (editFormError()) {
+        <p class="form-error">{{ errorText(editFormError()!) }}</p>
+      }
+
+      <div class="modal-panel__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeEditForm()">{{ 'orders.cancel' | t }}</button>
+        <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          {{ saving() ? ('orders.saving' | t) : ('common.save' | t) }}
+        </button>
+      </div>
+    </form>
+  </div>
+}

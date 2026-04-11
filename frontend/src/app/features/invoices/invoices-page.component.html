@@ -1,0 +1,181 @@
+<app-page-header titleKey="invoices.title" subtitleKey="invoices.subtitle">
+  <button type="button" class="btn btn--secondary" (click)="invoicesData.load()">
+    {{ 'common.refresh' | t }}
+  </button>
+</app-page-header>
+
+@if (statusError(); as err) {
+  <p class="invoices-banner invoices-banner--error">{{ errorText(err) }}</p>
+}
+
+<div class="invoices-table-wrap">
+  @if (invoicesData.invoices().length === 0) {
+    <p class="invoices-table__empty">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="invoices-table-scroll">
+      <table class="invoices-table">
+        <thead>
+          <tr>
+            <th>{{ 'invoices.col.id' | t }}</th>
+            <th>{{ 'invoices.col.order' | t }}</th>
+            <th>{{ 'invoices.col.dealer' | t }}</th>
+            <th>{{ 'invoices.col.total' | t }}</th>
+            <th>{{ 'invoices.col.date' | t }}</th>
+            <th>{{ 'invoices.col.status' | t }}</th>
+            <th class="invoices-table__actions-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (inv of invoicesData.invoices(); track inv.id) {
+            <tr>
+              <td>{{ inv.id }}</td>
+              <td>{{ inv.orderId }}</td>
+              <td>{{ inv.dealerName }}</td>
+              <td>{{ inv.total | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+              <td>{{ inv.invoiceDate }}</td>
+              <td>{{ ('invoices.status.' + inv.status) | t }}</td>
+              <td class="invoices-table__actions">
+                <div class="invoices-table__action-btns">
+                  <button type="button" class="btn btn--secondary btn--sm" (click)="openDetail(inv)">
+                    {{ 'invoices.detail' | t }}
+                  </button>
+                  @if (isSuperAdmin() && canApproveInvoice(inv)) {
+                    <button
+                      type="button"
+                      class="btn btn--primary btn--sm"
+                      [disabled]="statusBusyId() === inv.id"
+                      (click)="setStatus(inv, 'approved')"
+                    >
+                      {{ 'invoices.approve' | t }}
+                    </button>
+                  }
+                  @if (isSuperAdmin() && canCancelInvoice(inv)) {
+                    <button
+                      type="button"
+                      class="btn btn--ghost-light btn--sm"
+                      [disabled]="statusBusyId() === inv.id"
+                      (click)="setStatus(inv, 'cancelled')"
+                    >
+                      {{ 'invoices.cancelInvoice' | t }}
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
+
+@if (detailOpen(); as d) {
+  <div class="modal-backdrop" role="presentation" (click)="closeDetail()"></div>
+  <div class="modal-panel modal-panel--lg" role="dialog" aria-modal="true">
+    <div class="modal-panel__head">
+      <h2 class="modal-panel__title">{{ 'invoices.detailTitle' | t }} — {{ d.id }}</h2>
+      <button type="button" class="icon-btn" (click)="closeDetail()" [attr.aria-label]="'common.close' | t">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </div>
+    <div class="modal-panel__body">
+      <p class="invoices-detail__meta">
+        <span>{{ d.dealerName }}</span>
+        <span class="invoices-detail__sep">·</span>
+        <span>{{ ('invoices.status.' + d.status) | t }}</span>
+        <span class="invoices-detail__sep">·</span>
+        <span>{{ 'invoices.col.order' | t }}: {{ d.orderId }}</span>
+        <span class="invoices-detail__sep">·</span>
+        <span>{{ d.invoiceDate }}</span>
+      </p>
+      <div class="invoices-lines-wrap">
+        <table class="invoices-lines">
+          <thead>
+            <tr>
+              <th>{{ 'orders.line.product' | t }}</th>
+              <th>{{ 'orders.line.sku' | t }}</th>
+              <th>{{ 'orders.line.unit' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.qty' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.unitPrice' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.lineTotal' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.vat' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.vatAmount' | t }}</th>
+              <th class="invoices-lines__num">{{ 'orders.line.lineTotalIncVat' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of d.lines; track line.id) {
+              <tr>
+                <td>{{ line.name }}</td>
+                <td>{{ line.sku }}</td>
+                <td>{{ { code: line.unitCode ?? '', name: line.unit } | unitName }}</td>
+                <td class="invoices-lines__num">{{ line.quantity | number: '1.0-3' : i18n.numberLocale() }}</td>
+                <td class="invoices-lines__num">{{ line.unitPrice | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+                <td class="invoices-lines__num">{{ line.lineTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+                <td class="invoices-lines__num">
+                  @if (line.vatRate != null) {
+                    %{{ line.vatRate | number: '1.0-2' : i18n.numberLocale() }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="invoices-lines__num">
+                  @if (line.vatAmount > 0) {
+                    {{ line.vatAmount | number: '1.2-2' : i18n.numberLocale() }} ₺
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="invoices-lines__num">{{ line.lineTotalIncVat | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (hasLineDiscount(d)) {
+        <p class="invoices-detail__hint">{{ 'orders.lineDiscountHint' | t }}</p>
+      }
+      <div class="invoices-detail__totals">
+        <p class="invoices-detail__total">
+          <span class="invoices-detail__total-label">{{ 'orders.detailTotalExVat' | t }}</span>
+          <strong>{{ d.total | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+        </p>
+        @if (d.vatTotal > 0) {
+          <p class="invoices-detail__total invoices-detail__total--muted">
+            <span class="invoices-detail__total-label">{{ 'orders.detailVatSum' | t }}</span>
+            <span>{{ d.vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+          </p>
+          <p class="invoices-detail__total invoices-detail__total--grand">
+            <span class="invoices-detail__total-label">{{ 'orders.detailTotalIncVat' | t }}</span>
+            <strong>{{ d.totalIncVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+          </p>
+        }
+      </div>
+      <div class="modal-panel__footer invoices-detail__footer">
+        <button type="button" class="btn btn--secondary" (click)="closeDetail()">{{ 'common.close' | t }}</button>
+        @if (isSuperAdmin() && canApproveInvoice(d)) {
+          <button
+            type="button"
+            class="btn btn--primary"
+            [disabled]="statusBusyId() === d.id"
+            (click)="setStatus(d, 'approved')"
+          >
+            {{ 'invoices.approve' | t }}
+          </button>
+        }
+        @if (isSuperAdmin() && canCancelInvoice(d)) {
+          <button
+            type="button"
+            class="btn btn--ghost-light"
+            [disabled]="statusBusyId() === d.id"
+            (click)="setStatus(d, 'cancelled')"
+          >
+            {{ 'invoices.cancelInvoice' | t }}
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+}

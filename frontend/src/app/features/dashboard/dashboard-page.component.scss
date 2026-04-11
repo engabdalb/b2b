@@ -1,0 +1,76 @@
+.grid-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  padding: 1.15rem 1.25rem;
+}
+
+.metric-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.metric-card__icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+}
+
+.metric-card__icon--clock {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.metric-card__icon--users {
+  background: rgba(13, 148, 136, 0.12);
+  color: #0d9488;
+}
+
+.metric-card__icon--cart {
+  background: rgba(217, 119, 6, 0.12);
+  color: #d97706;
+}
+
+.metric-card__icon--money {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
+.trend {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.trend--up {
+  color: var(--success);
+}
+
+.trend--down {
+  color: var(--danger);
+}
+
+.metric-card__label {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.metric-card__value {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}

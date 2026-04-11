@@ -1,0 +1,7 @@
+<app-page-header titleKey="dealers.title" subtitleKey="dealers.subtitle">
+  <ng-container *appCan="perm.dealersEdit">
+    <button type="button" class="btn btn--primary">{{ 'dealers.new' | t }}</button>
+  </ng-container>
+</app-page-header>
+
+<app-data-table [columns]="columns" [rows]="rows()" />

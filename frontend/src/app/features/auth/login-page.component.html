@@ -1,0 +1,32 @@
+<div class="login">
+  <div class="login__card">
+    <h1>{{ 'login.title' | t }}</h1>
+    <p class="login__hint">{{ 'login.hint' | t }}</p>
+
+    <form (ngSubmit)="submit()" class="login__form">
+      <label class="field">
+        <span class="field__label">{{ 'login.email' | t }}</span>
+        <input class="field__input" name="email" type="email" autocomplete="username" [(ngModel)]="email" required />
+      </label>
+      <label class="field">
+        <span class="field__label">{{ 'login.password' | t }}</span>
+        <input
+          class="field__input"
+          name="password"
+          type="password"
+          autocomplete="current-password"
+          [(ngModel)]="password"
+          required
+        />
+      </label>
+
+      @if (error(); as err) {
+        <p class="login__error">{{ err.startsWith('login.') ? (err | t) : err }}</p>
+      }
+
+      <button type="submit" class="btn btn--primary login__submit" [disabled]="busy()">
+        {{ (busy() ? 'login.submitting' : 'login.submit') | t }}
+      </button>
+    </form>
+  </div>
+</div>

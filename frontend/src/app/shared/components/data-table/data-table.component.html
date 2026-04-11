@@ -1,0 +1,26 @@
+<div class="data-table-wrap">
+  @if (rows().length === 0) {
+    <p class="data-table__empty">{{ emptyKey() | t }}</p>
+  } @else {
+    <div class="data-table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr>
+            @for (col of columns(); track col.key) {
+              <th>{{ col.labelKey | t }}</th>
+            }
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track $index) {
+            <tr>
+              @for (col of columns(); track col.key) {
+                <td>{{ displayCell(row, col) }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>
