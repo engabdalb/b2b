@@ -18,8 +18,8 @@
 |--------|----------|
 | `b2b_login` | POST JSON `{ "email", "password" }` — JWT döner |
 | `b2b_dashboard_get` | GET — özet metrikler |
-| `b2b_orders_get` | GET — sipariş listesi + her sipariş için `lines[]` (ürün, adet, birim fiyat, satır tutarı, `vatRate`, `discountAmount`) |
-| `b2b_order_create` | POST JSON süper admin / bayi — `{ "dealer_id": "1" }` (sadece süper admin zorunlu), `lines`: `[{ "product_id", "quantity", "discount_amount"?, "vat_rate"? }]` |
+| `b2b_orders_get` | GET — sipariş listesi (`description` dahil) + her sipariş için `lines[]` (ürün, adet, birim fiyat, satır tutarı, `vatRate`, `discountAmount`); arama `q` açıklama alanında da aranır |
+| `b2b_order_create` | POST JSON süper admin / bayi — `{ "dealer_id": "1" }` (sadece süper admin zorunlu), isteğe bağlı `description` (≤2000 karakter), `lines`: `[{ "product_id", "quantity", "discount_amount"?, "vat_rate"? }]` |
 | `b2b_order_invoice_create` | POST JSON yalnız süper admin — `{ "order_id": "S-…" }` — sipariş kalemlerini `b2b_invoices` / `b2b_invoice_items` anlık kopyalar; fatura durumu `pending` |
 | `b2b_invoices_get` | GET — fatura listesi + `lines[]`; bayi yalnız kendi faturalarını görür |
 | `b2b_invoice_set_status` | POST JSON süper admin — `{ "invoice_id": "F-…", "status": "approved" \| "cancelled" }` — onay yalnız `pending` iken; iptal `pending` veya `approved` iken (satır silinmez, `cancelled` olur; sipariş yeniden faturalandırılabilir) |

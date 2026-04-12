@@ -20,6 +20,7 @@ $ymd = static function (string $s): ?string {
 
 $sql = 'SELECT o.id AS internalId, o.external_id AS id, d.name AS dealerName, o.status, o.total,
                o.vat_total AS vatTotal, o.total_inc_vat AS totalIncVat, o.created_at AS createdAt,
+               o.description AS description,
                (SELECT i2.external_id FROM b2b_invoices i2
                  WHERE i2.order_id = o.id AND i2.status IN (\'pending\',\'approved\')
                  ORDER BY i2.id DESC LIMIT 1) AS invoiceId,
@@ -69,9 +70,10 @@ if ($inv === 'with') {
 
 $q = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 if ($q !== '') {
-    $sql .= ' AND (o.external_id LIKE :q1 OR d.name LIKE :q2)';
+    $sql .= ' AND (o.external_id LIKE :q1 OR d.name LIKE :q2 OR o.description LIKE :q3)';
     $params[':q1'] = '%' . $q . '%';
     $params[':q2'] = '%' . $q . '%';
+    $params[':q3'] = '%' . $q . '%';
 }
 
 $sql .= ' ORDER BY o.created_at DESC, o.id DESC';
@@ -123,6 +125,7 @@ $items = array_map(static function (array $r) use ($linesByOrder): array {
     $internalId = (int) $r['internalId'];
     $invId = $r['invoiceId'] ?? null;
     $invSt = $r['invoiceStatus'] ?? null;
+    $desc = $r['description'] ?? null;
     return [
         'id' => (string) $r['id'],
         'dealerName' => (string) $r['dealerName'],
@@ -131,6 +134,7 @@ $items = array_map(static function (array $r) use ($linesByOrder): array {
         'vatTotal' => (float) ($r['vatTotal'] ?? 0),
         'totalIncVat' => (float) ($r['totalIncVat'] ?? 0),
         'createdAt' => (string) $r['createdAt'],
+        'description' => $desc !== null && $desc !== '' ? (string) $desc : null,
         'invoiceId' => $invId !== null && $invId !== false && $invId !== '' ? (string) $invId : null,
         'invoiceStatus' => $invSt !== null && $invSt !== false && $invSt !== '' ? (string) $invSt : null,
         'lines' => $linesByOrder[$internalId] ?? [],

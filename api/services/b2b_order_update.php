@@ -33,6 +33,14 @@ if (!in_array($status, $allowedStatus, true)) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Geçersiz sipariş durumu.'], 400);
 }
 
+$hasDesc = array_key_exists('description', $body);
+if ($hasDesc) {
+    $descCheck = trim((string) $body['description']);
+    if (strlen($descCheck) > 2000) {
+        json_response(['ok' => false, 'error' => 'validation', 'message' => 'Açıklama en fazla 2000 karakter olabilir.'], 400);
+    }
+}
+
 $ordStmt = $pdo->prepare('SELECT id, dealer_id FROM b2b_orders WHERE external_id = :eid LIMIT 1');
 $ordStmt->execute([':eid' => $orderRef]);
 $orderRow = $ordStmt->fetch(PDO::FETCH_ASSOC);
@@ -159,6 +167,13 @@ try {
         ':id' => $orderId,
     ]);
 
+    if ($hasDesc) {
+        $descVal = trim((string) $body['description']);
+        $descVal = $descVal === '' ? null : $descVal;
+        $updDesc = $pdo->prepare('UPDATE b2b_orders SET description = :d WHERE id = :id');
+        $updDesc->execute([':d' => $descVal, ':id' => $orderId]);
+    }
+
     $pdo->commit();
 } catch (PDOException $e) {
     if ($pdo->inTransaction()) {
@@ -217,6 +232,9 @@ json_response([
         'vatTotal' => (float) ($meta['vatTotal'] ?? 0),
         'totalIncVat' => (float) ($meta['totalIncVat'] ?? 0),
         'createdAt' => (string) ($meta['createdAt'] ?? ''),
+        'description' => isset($meta['description']) && $meta['description'] !== null && $meta['description'] !== ''
+            ? (string) $meta['description']
+            : null,
         'lines' => $linesOut,
     ],
 ]);

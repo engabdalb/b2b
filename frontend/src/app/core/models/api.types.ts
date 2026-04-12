@@ -69,6 +69,8 @@ export interface OrderDto {
   /** Vergili genel toplam */
   totalIncVat: number;
   createdAt: string;
+  /** Serbest metin sipariş açıklaması */
+  description?: string | null;
   lines: OrderLineDto[];
   /** Aktif fatura (beklemede veya onaylı) yoksa null */
   invoiceId?: string | null;
@@ -105,6 +107,8 @@ export interface InvoiceSetStatusPayload {
 
 export interface OrderCreatePayload {
   dealer_id?: string;
+  /** İsteğe bağlı; en fazla 2000 karakter */
+  description?: string;
   lines: { product_id: string; quantity: number; discount_amount?: number; vat_rate?: number | null }[];
 }
 
@@ -118,6 +122,8 @@ export interface OrderCreateResponse {
 export interface OrderUpdatePayload {
   order_id: string;
   status: OrderDto['status'];
+  /** Süper admin düzenlemede isteğe bağlı */
+  description?: string;
   lines: {
     product_id: string;
     quantity: number;

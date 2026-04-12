@@ -38,6 +38,17 @@ if (!$checkDealer->fetchColumn()) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Geçersiz bayi.'], 400);
 }
 
+$orderDescription = null;
+if (isset($body['description'])) {
+    $orderDescription = trim((string) $body['description']);
+    if (strlen($orderDescription) > 2000) {
+        json_response(['ok' => false, 'error' => 'validation', 'message' => 'Açıklama en fazla 2000 karakter olabilir.'], 400);
+    }
+    if ($orderDescription === '') {
+        $orderDescription = null;
+    }
+}
+
 $normalized = [];
 foreach ($linesRaw as $idx => $row) {
     if (!is_array($row)) {
@@ -96,10 +107,10 @@ try {
     }
 
     $insOrder = $pdo->prepare(
-        'INSERT INTO b2b_orders (external_id, dealer_id, status, total, tray_count, created_at)
-         VALUES (:eid, :did, \'pending\', 0, 0, CURDATE())',
+        'INSERT INTO b2b_orders (external_id, dealer_id, status, total, tray_count, created_at, description)
+         VALUES (:eid, :did, \'pending\', 0, 0, CURDATE(), :desc)',
     );
-    $insOrder->execute([':eid' => $externalId, ':did' => $dealerId]);
+    $insOrder->execute([':eid' => $externalId, ':did' => $dealerId, ':desc' => $orderDescription]);
     $orderId = (int) $pdo->lastInsertId();
 
     $insItem = $pdo->prepare(
@@ -209,7 +220,7 @@ while ($lr = $lineFetch->fetch(PDO::FETCH_ASSOC)) {
 }
 
 $totalStmt = $pdo->prepare(
-    'SELECT total, vat_total AS vatTotal, total_inc_vat AS totalIncVat, created_at AS createdAt, status FROM b2b_orders WHERE id = :id LIMIT 1',
+    'SELECT total, vat_total AS vatTotal, total_inc_vat AS totalIncVat, created_at AS createdAt, status, description FROM b2b_orders WHERE id = :id LIMIT 1',
 );
 $totalStmt->execute([':id' => $orderId]);
 $meta = $totalStmt->fetch(PDO::FETCH_ASSOC);
@@ -224,6 +235,7 @@ json_response([
         'vatTotal' => (float) ($meta['vatTotal'] ?? 0),
         'totalIncVat' => (float) ($meta['totalIncVat'] ?? 0),
         'createdAt' => (string) ($meta['createdAt'] ?? ''),
+        'description' => $meta['description'] !== null && $meta['description'] !== '' ? (string) $meta['description'] : null,
         'lines' => $linesOut,
     ],
 ]);

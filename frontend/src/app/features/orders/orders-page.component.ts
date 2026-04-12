@@ -1,10 +1,18 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormArray,
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { startWith } from 'rxjs';
 import { Permission } from '../../config/permissions.config';
-import { OrderDto, OrderLineDto } from '../../core/models/api.types';
+import { OrderCreatePayload, OrderDto, OrderLineDto, OrderUpdatePayload, ProductDto } from '../../core/models/api.types';
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
 import { PermissionsService } from '../../core/services/permissions.service';
@@ -16,6 +24,38 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { UnitNamePipe } from '../../shared/pipes/unit-name.pipe';
 import { CanDirective } from '../../shared/directives/can.directive';
+
+/** Sepet satırı miktarı: tam sayı ve ≥ 1 */
+function cartLineIntegerQtyValidator(c: AbstractControl): ValidationErrors | null {
+  const raw = c.value;
+  if (raw === null || raw === undefined || raw === '') {
+    return { required: true };
+  }
+  const n = Number(raw);
+  if (!Number.isFinite(n)) {
+    return { invalid: true };
+  }
+  if (!Number.isInteger(n)) {
+    return { notInteger: true };
+  }
+  if (n < 1) {
+    return { min: { min: 1, actual: n } };
+  }
+  return null;
+}
+
+/** newOrderForm.lines satırı — getRawValue çıktısı */
+interface NewOrderLineFormValue {
+  productId: string;
+  quantity: number;
+  vatRate: number | null;
+}
+
+interface NewOrderFormRawValue {
+  dealerId: string;
+  description: string;
+  lines: NewOrderLineFormValue[];
+}
 
 @Component({
   selector: 'app-orders-page',
@@ -57,7 +97,10 @@ export class OrdersPageComponent implements OnInit {
   readonly filterSearch = signal('');
 
   readonly detailOpen = signal<OrderDto | null>(null);
-  readonly formOpen = signal(false);
+  /** Liste | Sipariş oluştur (yan panel) */
+  readonly ordersViewTab = signal<'list' | 'create'>('list');
+  readonly createProductSearch = signal('');
+  readonly createUnitFilter = signal<'all' | 'kg' | 'tepsi'>('all');
   readonly editFormOpen = signal(false);
   readonly editingOrderId = signal<string | null>(null);
   readonly editOrderMeta = signal<{ dealerName: string; createdAt: string } | null>(null);
@@ -69,11 +112,14 @@ export class OrdersPageComponent implements OnInit {
 
   readonly newOrderForm = this.fb.nonNullable.group({
     dealerId: [''],
-    lines: this.fb.array([this.createLineGroup()]),
+    description: [''],
+    /** Sipariş oluştur: başlangıçta boş sepet; ürün eklenince satır eklenir */
+    lines: new FormArray<FormGroup>([]),
   });
 
   readonly editOrderForm = this.fb.nonNullable.group({
     status: this.fb.nonNullable.control<OrderDto['status']>('pending'),
+    description: [''],
     lines: this.fb.array([this.createEditLineGroup()]),
   });
 
@@ -91,13 +137,14 @@ export class OrdersPageComponent implements OnInit {
   /** Ürün fiyatları + satırlar: KDV hariç satır tutarı, tahmini KDV, önizleme toplamları */
   readonly orderFormTotals = computed(() => {
     this.newOrderFormValue();
-    const raw = this.newOrderForm.getRawValue();
+    const raw = this.newOrderForm.getRawValue() as NewOrderFormRawValue;
+    const formLines = raw.lines;
     const products = this.productsData.products();
     const byId = new Map(products.map((p) => [p.id, p]));
 
     let subtotal = 0;
     let vatTotal = 0;
-    const lines = raw.lines.map((l) => {
+    const lines = formLines.map((l) => {
       const p = l.productId ? byId.get(String(l.productId)) : undefined;
       if (!p || l.quantity == null || l.quantity <= 0) {
         return { lineTotal: null as number | null, vatAmount: null as number | null };
@@ -160,6 +207,27 @@ export class OrdersPageComponent implements OnInit {
     return { lines, subtotal, vatTotal, grandWithVat };
   });
 
+  /** Sipariş oluştur sekmesi: arama + kg/tepsi filtreleri */
+  readonly productsFilteredForCreate = computed(() => {
+    const products = this.productsData.products();
+    const q = this.createProductSearch().trim().toLowerCase();
+    const uf = this.createUnitFilter();
+    return products.filter((p) => {
+      const code = (p.unitCode ?? '').trim().toLowerCase();
+      if (uf === 'kg' && code !== 'kg') {
+        return false;
+      }
+      if (uf === 'tepsi' && code !== 'tepsi') {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      const hay = `${p.name} ${p.sku}`.toLowerCase();
+      return hay.includes(q);
+    });
+  });
+
   ngOnInit(): void {
     this.ordersData.load();
     this.productsData.load();
@@ -192,7 +260,7 @@ export class OrdersPageComponent implements OnInit {
   private createLineGroup() {
     return this.fb.nonNullable.group({
       productId: ['', Validators.required],
-      quantity: [1, [Validators.required, Validators.min(0.001)]],
+      quantity: [1, [cartLineIntegerQtyValidator]],
       /** Varsayılan %10; boşaltılırsa API’de vat_rate gönderilmez (null). */
       vatRate: this.fb.control<number | null>(10),
     });
@@ -233,14 +301,7 @@ export class OrdersPageComponent implements OnInit {
     return this.editOrderForm.controls.lines as FormArray;
   }
 
-  addLine(): void {
-    this.lineControls.push(this.createLineGroup());
-  }
-
   removeLine(index: number): void {
-    if (this.lineControls.length <= 1) {
-      return;
-    }
     this.lineControls.removeAt(index);
   }
 
@@ -255,19 +316,175 @@ export class OrdersPageComponent implements OnInit {
     this.editLineControls.removeAt(index);
   }
 
-  openNew(): void {
+  private resetNewOrderForm(): void {
     this.formError.set(null);
     this.newOrderForm.reset({
       dealerId: this.isSuperAdmin() ? '' : (this.auth.user().dealerId ?? ''),
+      description: '',
     });
     this.lineControls.clear();
-    this.lineControls.push(this.createLineGroup());
-    this.formOpen.set(true);
   }
 
-  closeForm(): void {
-    this.formOpen.set(false);
+  /** Üst başlıktaki “Yeni sipariş” ve alt sekme: sipariş oluştur görünümü */
+  openCreateTab(): void {
+    if (!this.permissions.has(Permission.ordersCreate)) {
+      return;
+    }
+    this.resetNewOrderForm();
+    this.createProductSearch.set('');
+    this.createUnitFilter.set('all');
+    this.ordersViewTab.set('create');
+  }
+
+  goToListTab(): void {
+    this.ordersViewTab.set('list');
+  }
+
+  cancelCreateTab(): void {
     this.formError.set(null);
+    this.resetNewOrderForm();
+    this.ordersViewTab.set('list');
+  }
+
+  setCreateUnitFilter(v: 'all' | 'kg' | 'tepsi'): void {
+    this.createUnitFilter.set(v);
+  }
+
+  productById(id: string | null | undefined): ProductDto | undefined {
+    const s = String(id ?? '').trim();
+    if (!s) {
+      return undefined;
+    }
+    return this.productsData.products().find((p) => p.id === s);
+  }
+
+  /** Ürün kartından veya tekrar tıklamayla: aynı üründe miktar artar */
+  addProductToOrder(productId: string): void {
+    const pid = String(productId).trim();
+    if (!pid) {
+      return;
+    }
+    const arr = this.lineControls;
+    for (let i = 0; i < arr.length; i++) {
+      const g = arr.at(i);
+      if (String(g.get('productId')?.value ?? '').trim() === pid) {
+        const q = Number(g.get('quantity')?.value) || 0;
+        g.get('quantity')?.setValue(Math.max(1, Math.floor(q) + 1));
+        return;
+      }
+    }
+    for (let i = 0; i < arr.length; i++) {
+      const g = arr.at(i);
+      if (!String(g.get('productId')?.value ?? '').trim()) {
+        g.patchValue({
+          productId: pid,
+          quantity: Math.max(1, Math.floor(Number(g.get('quantity')?.value) || 1)),
+        });
+        return;
+      }
+    }
+    const g = this.createLineGroup();
+    g.patchValue({ productId: pid, quantity: 1 });
+    arr.push(g);
+  }
+
+  adjustLineQty(index: number, delta: number): void {
+    const g = this.lineControls.at(index);
+    if (!g) {
+      return;
+    }
+    const q = Number(g.get('quantity')?.value) || 0;
+    const base = Math.floor(q);
+    const next = base + delta;
+    g.get('quantity')?.setValue(Math.max(1, next));
+  }
+
+  /** Sepet miktarı: yalnızca rakamlar; e/E/+-/ondalık ve harf engellenir. */
+  onCartQtyKeydown(ev: KeyboardEvent): void {
+    const allowedNav = new Set([
+      'Backspace',
+      'Delete',
+      'Tab',
+      'Escape',
+      'Enter',
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'ArrowDown',
+      'Home',
+      'End',
+    ]);
+    if (allowedNav.has(ev.key)) {
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) {
+      return;
+    }
+    const k = ev.key;
+    if (k === 'e' || k === 'E' || k === '+' || k === '-') {
+      ev.preventDefault();
+      return;
+    }
+    if (k === '.' || k === ',') {
+      const t = ev.target as HTMLInputElement;
+      const val = String(t.value ?? '');
+      if (val.includes('.') || val.includes(',')) {
+        ev.preventDefault();
+      }
+      return;
+    }
+    if (!/^\d$/.test(k)) {
+      ev.preventDefault();
+    }
+  }
+
+  onCartQtyPaste(ev: ClipboardEvent, index: number): void {
+    ev.preventDefault();
+    const sanitized = (ev.clipboardData?.getData('text') ?? '').replace(/\D/g, '');
+    const n = parseInt(sanitized, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      return;
+    }
+    const q = Math.min(n, 1e9);
+    const g = this.lineControls.at(index);
+    const c = g?.get('quantity');
+    if (!c) {
+      return;
+    }
+    c.setValue(q);
+    (ev.target as HTMLInputElement).value = String(q);
+  }
+
+  onCartQtyBlur(index: number, ev: FocusEvent): void {
+    const el = ev.target as HTMLInputElement;
+    const g = this.lineControls.at(index);
+    const c = g?.get('quantity');
+    if (!c) {
+      return;
+    }
+    const raw = String(el.value ?? '').replace(/\D/g, '');
+    const n = parseInt(raw, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      c.setValue(1);
+      el.value = '1';
+      return;
+    }
+    const q = Math.min(n, 1e9);
+    c.setValue(q);
+    el.value = String(q);
+  }
+
+  /** Miktar 1 iken azaltma (sipariş oluştur sepeti) */
+  qtyDecreaseDisabled(index: number): boolean {
+    const g = this.lineControls.at(index);
+    if (!g) {
+      return true;
+    }
+    const q = Number(g.get('quantity')?.value);
+    if (!Number.isFinite(q)) {
+      return true;
+    }
+    return q <= 1;
   }
 
   openDetail(o: OrderDto): void {
@@ -287,6 +504,7 @@ export class OrdersPageComponent implements OnInit {
     this.editingOrderId.set(o.id);
     this.editOrderMeta.set({ dealerName: o.dealerName, createdAt: o.createdAt });
     this.editOrderForm.controls.status.setValue(o.status);
+    this.editOrderForm.controls.description.setValue(o.description ?? '');
     const arr = this.editLineControls;
     arr.clear();
     if (o.lines.length === 0) {
@@ -358,7 +576,13 @@ export class OrdersPageComponent implements OnInit {
 
     this.saving.set(true);
     this.editFormError.set(null);
-    this.ordersData.update({ order_id: oid, status: raw.status, lines }).subscribe({
+    const updatePayload: OrderUpdatePayload = {
+      order_id: oid,
+      status: raw.status,
+      description: String(raw.description ?? '').trim(),
+      lines,
+    };
+    this.ordersData.update(updatePayload).subscribe({
       next: (r) => {
         this.saving.set(false);
         if (!r.ok) {
@@ -384,9 +608,10 @@ export class OrdersPageComponent implements OnInit {
       return;
     }
 
-    const raw = this.newOrderForm.getRawValue();
+    const raw = this.newOrderForm.getRawValue() as NewOrderFormRawValue;
+    const formLines = raw.lines;
 
-    for (const l of raw.lines) {
+    for (const l of formLines) {
       if (!l.productId || !(l.quantity > 0)) {
         continue;
       }
@@ -399,7 +624,7 @@ export class OrdersPageComponent implements OnInit {
       }
     }
 
-    const lines = raw.lines
+    const lines = formLines
       .filter((l) => l.productId && l.quantity > 0)
       .map((l) => {
         const row: {
@@ -422,7 +647,7 @@ export class OrdersPageComponent implements OnInit {
       return;
     }
 
-    const payload: { dealer_id?: string; lines: typeof lines } = { lines };
+    const payload: OrderCreatePayload = { lines };
     if (this.isSuperAdmin()) {
       payload.dealer_id = String(raw.dealerId).trim();
     } else {
@@ -430,6 +655,14 @@ export class OrdersPageComponent implements OnInit {
       if (did) {
         payload.dealer_id = did;
       }
+    }
+    const descTrim = String(raw.description ?? '').trim();
+    if (descTrim) {
+      payload.description = descTrim;
+    }
+
+    if (!window.confirm(this.i18n.translate('orders.createConfirmMessage'))) {
+      return;
     }
 
     this.saving.set(true);
@@ -441,7 +674,9 @@ export class OrdersPageComponent implements OnInit {
           this.formError.set(r.message ?? 'orders.saveError');
           return;
         }
-        this.closeForm();
+        this.resetNewOrderForm();
+        this.ordersViewTab.set('list');
+        this.ordersData.load();
       },
       error: (err: { error?: { message?: string } }) => {
         this.saving.set(false);
@@ -521,6 +756,7 @@ export class OrdersPageComponent implements OnInit {
       status: t('orders.col.status'),
       invoiceId: t('invoices.col.id'),
       invoiceStatus: t('invoices.col.status'),
+      orderDescription: t('orders.description'),
       product: t('orders.line.product'),
       sku: t('orders.line.sku'),
       unit: t('orders.line.unit'),
@@ -532,6 +768,7 @@ export class OrdersPageComponent implements OnInit {
       lineTotalIncVat: t('orders.line.lineTotalIncVat'),
       discount: t('orders.line.discount'),
       simpleQty: t('orders.export.simpleQty'),
+      sheetOrderBook: t('orders.export.sheetOrderBook'),
     };
   }
 

@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS b2b_orders (
   vat_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   total_inc_vat DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   tray_count INT NOT NULL DEFAULT 0,
+  description VARCHAR(2000) NULL DEFAULT NULL COMMENT 'Sipariş açıklaması (serbest metin)',
   created_at DATE NOT NULL,
   CONSTRAINT fk_b2b_order_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE CASCADE,
   KEY idx_b2b_orders_dealer (dealer_id)

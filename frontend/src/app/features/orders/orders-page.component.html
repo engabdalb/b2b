@@ -1,9 +1,31 @@
 <app-page-header titleKey="orders.title" subtitleKey="orders.subtitle">
   <ng-container *appCan="perm.ordersCreate">
-    <button type="button" class="btn btn--primary" (click)="openNew()">{{ 'orders.new' | t }}</button>
+    <button type="button" class="btn btn--primary" (click)="openCreateTab()">{{ 'orders.new' | t }}</button>
   </ng-container>
 </app-page-header>
 
+<nav class="orders-subtabs" [attr.aria-label]="'orders.subtabsNav' | t">
+  <button
+    type="button"
+    class="orders-subtabs__btn"
+    [class.orders-subtabs__btn--active]="ordersViewTab() === 'list'"
+    (click)="goToListTab()"
+  >
+    {{ 'orders.subTabList' | t }}
+  </button>
+  <ng-container *appCan="perm.ordersCreate">
+    <button
+      type="button"
+      class="orders-subtabs__btn"
+      [class.orders-subtabs__btn--active]="ordersViewTab() === 'create'"
+      (click)="openCreateTab()"
+    >
+      {{ 'orders.subTabCreate' | t }}
+    </button>
+  </ng-container>
+</nav>
+
+@if (ordersViewTab() === 'list') {
 <section class="list-filters" [attr.aria-label]="'filters.sectionLabel' | t">
   <div class="list-filters__grid">
     <label class="list-filters__field">
@@ -86,6 +108,7 @@
             <th>{{ 'orders.col.total' | t }}</th>
             <th>{{ 'orders.col.date' | t }}</th>
             <th>{{ 'orders.col.status' | t }}</th>
+            <th class="orders-table__desc-col">{{ 'orders.description' | t }}</th>
             <th class="orders-table__actions-col"></th>
           </tr>
         </thead>
@@ -98,6 +121,13 @@
               <td>{{ o.total | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
               <td>{{ o.createdAt }}</td>
               <td>{{ ('orders.status.' + o.status) | t }}</td>
+              <td class="orders-table__desc" [attr.title]="o.description?.trim() || null">
+                @if (o.description?.trim()) {
+                  <span>{{ o.description }}</span>
+                } @else {
+                  —
+                }
+              </td>
               <td class="orders-table__actions">
                 <div class="orders-table__action-btns">
                   <button type="button" class="btn btn--secondary btn--sm" (click)="openDetail(o)">
@@ -137,6 +167,206 @@
     </div>
   }
 </div>
+}
+
+@if (ordersViewTab() === 'create') {
+  <ng-container *appCan="perm.ordersCreate">
+  <div class="orders-create">
+    <div class="orders-create__catalog">
+      <div class="orders-create__toolbar">
+        <label class="orders-create__search field">
+          <span class="field__label">{{ 'filters.search' | t }}</span>
+          <input
+            class="field__input"
+            type="search"
+            [value]="createProductSearch()"
+            (input)="createProductSearch.set($any($event.target).value)"
+            [attr.placeholder]="'orders.createSearchPlaceholder' | t"
+            autocomplete="off"
+          />
+        </label>
+        <div class="orders-create__unit-filters" role="group" [attr.aria-label]="'orders.unitFilterGroup' | t">
+          <button
+            type="button"
+            class="chip-btn"
+            [class.chip-btn--active]="createUnitFilter() === 'all'"
+            (click)="setCreateUnitFilter('all')"
+          >
+            {{ 'orders.filterUnitAll' | t }}
+          </button>
+          <button
+            type="button"
+            class="chip-btn"
+            [class.chip-btn--active]="createUnitFilter() === 'kg'"
+            (click)="setCreateUnitFilter('kg')"
+          >
+            {{ 'orders.filterUnitKg' | t }}
+          </button>
+          <button
+            type="button"
+            class="chip-btn"
+            [class.chip-btn--active]="createUnitFilter() === 'tepsi'"
+            (click)="setCreateUnitFilter('tepsi')"
+          >
+            {{ 'orders.filterUnitTepsi' | t }}
+          </button>
+        </div>
+      </div>
+      @if (productsFilteredForCreate().length === 0) {
+        <p class="orders-create__empty">{{ 'orders.createCatalogEmpty' | t }}</p>
+      } @else {
+        <ul class="orders-product-grid">
+          @for (p of productsFilteredForCreate(); track p.id) {
+            <li>
+              <button type="button" class="orders-product-card" (click)="addProductToOrder(p.id)">
+                <span class="orders-product-card__unit">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }}</span>
+                <span class="orders-product-card__name">{{ p.name }}</span>
+                <span class="orders-product-card__meta">{{ p.sku }}</span>
+                <span class="orders-product-card__price">{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+                <span class="orders-product-card__add">{{ 'orders.addToCart' | t }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+
+    <aside class="orders-create__side" aria-labelledby="orders-create-side-title">
+      <h2 id="orders-create-side-title" class="orders-create__side-title">{{ 'orders.formTitleNew' | t }}</h2>
+      <form class="orders-create__form" [formGroup]="newOrderForm" (ngSubmit)="submitNew()">
+        @if (isSuperAdmin()) {
+          <label class="field">
+            <span class="field__label">{{ 'orders.col.dealer' | t }}</span>
+            <select class="field__input" formControlName="dealerId">
+              <option value="">{{ 'orders.pickDealer' | t }}</option>
+              @for (dealer of dealersData.dealers(); track dealer.id) {
+                <option [value]="dealer.id">{{ dealer.name }} — {{ dealer.region }}</option>
+              }
+            </select>
+          </label>
+        }
+
+        <div class="orders-create-lines">
+          <div class="orders-create-lines__head">
+            <span class="field__label">{{ 'orders.createCartLines' | t }}</span>
+          </div>
+          @if (lineControls.length === 0) {
+            <p class="orders-create__empty-cart">{{ 'orders.cartEmpty' | t }}</p>
+          }
+          @for (line of lineControls.controls; track $index; let i = $index) {
+            <div class="orders-create-line" [formGroup]="$any(line)">
+              <div class="orders-create-line__info">
+                @if (productById($any(line).get('productId')?.value); as pr) {
+                  <span class="orders-create-line__name">{{ pr.name }}</span>
+                  <span class="orders-create-line__sku">{{ pr.sku }} · {{ { unitCode: pr.unitCode ?? '', name: pr.unit } | unitName }}</span>
+                } @else {
+                  <span class="orders-create-line__name orders-create-line__name--muted">{{ 'orders.pickProductHint' | t }}</span>
+                }
+              </div>
+              <div class="orders-create-line__controls">
+                <div class="orders-create-line__qty-block">
+                  <div class="orders-create-line__stepper">
+                    <button
+                      type="button"
+                      class="btn btn--ghost-light btn--sm"
+                      [disabled]="qtyDecreaseDisabled(i)"
+                      (click)="adjustLineQty(i, -1)"
+                      [attr.aria-label]="'orders.qtyDecrease' | t"
+                    >
+                      −
+                    </button>
+                    <input
+                      class="field__input orders-create-line__qty"
+                      type="number"
+                      inputmode="numeric"
+                      min="1"
+                      step="1"
+                      formControlName="quantity"
+                      (keydown)="onCartQtyKeydown($event)"
+                      (paste)="onCartQtyPaste($event, i)"
+                      (blur)="onCartQtyBlur(i, $event)"
+                    />
+                    <button type="button" class="btn btn--ghost-light btn--sm" (click)="adjustLineQty(i, 1)" [attr.aria-label]="'orders.qtyIncrease' | t">+</button>
+                  </div>
+                  <label class="orders-create-line__vat-label">
+                    <span class="orders-create-line__vat-hint">{{ 'orders.line.vat' | t }}</span>
+                    <input
+                      class="field__input orders-create-line__vat"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      formControlName="vatRate"
+                      [attr.placeholder]="'orders.vatOptionalPlaceholder' | t"
+                    />
+                  </label>
+                </div>
+                <div class="orders-create-line__meta-end">
+                  <div class="orders-create-line__total">
+                    @if (orderFormTotals().lines[i].lineTotal != null) {
+                      {{ orderFormTotals().lines[i].lineTotal! | number: '1.2-2' : i18n.numberLocale() }} ₺
+                    } @else {
+                      —
+                    }
+                  </div>
+                  @if (lineControls.length > 1) {
+                    <button type="button" class="btn btn--ghost-light btn--sm orders-create-line__remove" (click)="removeLine(i)">{{ 'orders.removeLine' | t }}</button>
+                  } @else {
+                    <span class="orders-create-line__remove-spacer" aria-hidden="true"></span>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+
+        @if (orderFormTotals().subtotal > 0) {
+          <div class="orders-form-summary">
+            <p class="orders-form-summary__row">
+              <span>{{ 'orders.formTotalExVat' | t }}</span>
+              <strong>{{ orderFormTotals().subtotal | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+            </p>
+            @if (orderFormTotals().vatTotal > 0) {
+              <p class="orders-form-summary__row orders-form-summary__row--muted">
+                <span>{{ 'orders.formVatEstimated' | t }}</span>
+                <span>{{ orderFormTotals().vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+              </p>
+              <p class="orders-form-summary__row">
+                <span>{{ 'orders.formTotalIncVatEstimated' | t }}</span>
+                <strong>{{ orderFormTotals().grandWithVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
+              </p>
+            }
+          </div>
+        }
+
+        @if (formError()) {
+          <p class="form-error">{{ errorText(formError()!) }}</p>
+        }
+
+        <p class="orders-create__disclaimer" role="note">{{ 'orders.createDisclaimer' | t }}</p>
+
+        <label class="field orders-create__description-field">
+          <span class="field__label">{{ 'orders.description' | t }}</span>
+          <textarea
+            class="field__input orders-create__description-input"
+            formControlName="description"
+            rows="3"
+            maxlength="2000"
+            [attr.placeholder]="'orders.descriptionPlaceholder' | t"
+          ></textarea>
+        </label>
+
+        <div class="orders-create__footer">
+          <button type="button" class="btn btn--secondary" (click)="cancelCreateTab()">{{ 'orders.cancel' | t }}</button>
+          <button type="submit" class="btn btn--primary" [disabled]="saving()">
+            {{ saving() ? ('orders.saving' | t) : ('common.save' | t) }}
+          </button>
+        </div>
+      </form>
+    </aside>
+  </div>
+  </ng-container>
+}
 
 @if (detailOpen(); as d) {
   <div class="modal-backdrop" role="presentation" (click)="closeDetail()"></div>
@@ -157,6 +387,12 @@
         <span class="orders-detail__sep">·</span>
         <span>{{ d.createdAt }}</span>
       </p>
+      @if (d.description && d.description.trim()) {
+        <div class="orders-detail__description">
+          <span class="orders-detail__description-label">{{ 'orders.description' | t }}</span>
+          <p class="orders-detail__description-text">{{ d.description }}</p>
+        </div>
+      }
       <div class="orders-lines-wrap">
         <table class="orders-lines">
           <thead>
@@ -249,119 +485,6 @@
   </div>
 }
 
-@if (formOpen()) {
-  <div class="modal-backdrop" role="presentation" (click)="closeForm()"></div>
-  <div class="modal-panel modal-panel--lg" role="dialog" aria-modal="true">
-    <div class="modal-panel__head">
-      <h2 class="modal-panel__title">{{ 'orders.formTitleNew' | t }}</h2>
-      <button type="button" class="icon-btn" (click)="closeForm()" [attr.aria-label]="'common.close' | t">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-    <form class="modal-panel__body" [formGroup]="newOrderForm" (ngSubmit)="submitNew()">
-      @if (isSuperAdmin()) {
-        <label class="field">
-          <span class="field__label">{{ 'orders.col.dealer' | t }}</span>
-          <select class="field__input" formControlName="dealerId">
-            <option value="">{{ 'orders.pickDealer' | t }}</option>
-            @for (dealer of dealersData.dealers(); track dealer.id) {
-              <option [value]="dealer.id">{{ dealer.name }} — {{ dealer.region }}</option>
-            }
-          </select>
-        </label>
-      }
-
-      <div class="orders-form-lines">
-        <div class="orders-form-lines__head">
-          <span class="field__label">{{ 'orders.formLines' | t }}</span>
-          <button type="button" class="btn btn--secondary btn--sm" (click)="addLine()">{{ 'orders.addLine' | t }}</button>
-        </div>
-        <div class="orders-form-line orders-form-line--hdr" aria-hidden="true">
-          <span class="orders-form-line__hdr">{{ 'orders.line.product' | t }}</span>
-          <span class="orders-form-line__hdr">{{ 'orders.line.qty' | t }}</span>
-          <span class="orders-form-line__hdr">{{ 'orders.line.vat' | t }}</span>
-          <span class="orders-form-line__hdr">{{ 'orders.line.lineTotal' | t }}</span>
-          <span class="orders-form-line__hdr orders-form-line__hdr--action"></span>
-        </div>
-        @for (line of lineControls.controls; track $index; let i = $index) {
-          <div class="orders-form-line" [formGroup]="$any(line)">
-            <select class="field__input" formControlName="productId">
-              <option value="">{{ 'orders.pickProduct' | t }}</option>
-              @for (p of productsData.products(); track p.id) {
-                <option [value]="p.id">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }} — {{ p.name }} ({{ p.sku }}) — {{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</option>
-              }
-            </select>
-            <input
-              class="field__input orders-form-line__qty"
-              type="number"
-              min="0"
-              step="1"
-              formControlName="quantity"
-            />
-            <input
-              class="field__input orders-form-line__vat"
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              formControlName="vatRate"
-              [attr.aria-label]="'orders.line.vat' | t"
-              [attr.placeholder]="'orders.vatOptionalPlaceholder' | t"
-            />
-            <span
-              class="orders-form-line__total"
-              [class.orders-form-line__total--empty]="orderFormTotals().lines[i].lineTotal == null"
-            >
-              @if (orderFormTotals().lines[i].lineTotal != null) {
-                {{ orderFormTotals().lines[i].lineTotal! | number: '1.2-2' : i18n.numberLocale() }} ₺
-              } @else {
-                —
-              }
-            </span>
-            @if (lineControls.length > 1) {
-              <button type="button" class="btn btn--ghost-light btn--sm" (click)="removeLine(i)">{{ 'orders.removeLine' | t }}</button>
-            } @else {
-              <span class="orders-form-line__remove-spacer"></span>
-            }
-          </div>
-        }
-      </div>
-
-      @if (orderFormTotals().subtotal > 0) {
-        <div class="orders-form-summary">
-          <p class="orders-form-summary__row">
-            <span>{{ 'orders.formTotalExVat' | t }}</span>
-            <strong>{{ orderFormTotals().subtotal | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
-          </p>
-          @if (orderFormTotals().vatTotal > 0) {
-            <p class="orders-form-summary__row orders-form-summary__row--muted">
-              <span>{{ 'orders.formVatEstimated' | t }}</span>
-              <span>{{ orderFormTotals().vatTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
-            </p>
-            <p class="orders-form-summary__row">
-              <span>{{ 'orders.formTotalIncVatEstimated' | t }}</span>
-              <strong>{{ orderFormTotals().grandWithVat | number: '1.2-2' : i18n.numberLocale() }} ₺</strong>
-            </p>
-          }
-        </div>
-      }
-
-      @if (formError()) {
-        <p class="form-error">{{ errorText(formError()!) }}</p>
-      }
-
-      <div class="modal-panel__footer">
-        <button type="button" class="btn btn--secondary" (click)="closeForm()">{{ 'orders.cancel' | t }}</button>
-        <button type="submit" class="btn btn--primary" [disabled]="saving()">
-          {{ saving() ? ('orders.saving' | t) : ('common.save' | t) }}
-        </button>
-      </div>
-    </form>
-  </div>
-}
-
 @if (editFormOpen()) {
   <div class="modal-backdrop" role="presentation" (click)="closeEditForm()"></div>
   <div class="modal-panel modal-panel--xl" role="dialog" aria-modal="true">
@@ -395,6 +518,17 @@
           <option value="shipped">{{ 'orders.status.shipped' | t }}</option>
           <option value="cancelled">{{ 'orders.status.cancelled' | t }}</option>
         </select>
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'orders.description' | t }}</span>
+        <textarea
+          class="field__input orders-create__description-input"
+          formControlName="description"
+          rows="3"
+          maxlength="2000"
+          [attr.placeholder]="'orders.descriptionPlaceholder' | t"
+        ></textarea>
       </label>
 
       <div class="orders-form-lines">
