@@ -1,32 +1,36 @@
-# B2B — Apache 2.4 (XAMPP / üretim)
-# Angular: frontend/dist/b2b-admin/browser (src/index.html derlemesi).
-# Alt dizin /b2b/ için: frontend içinde `ng build --configuration=xampp`
+# B2B — Apache 2.4
+# Angular build: frontend/dist/b2b-admin/browser
+#
+# Canlı (alt alan adı kökü, örn. https://b2b.site.com/): RewriteBase /
+# Yerel XAMPP alt klasör (http://localhost/b2b/): RewriteBase /b2b/ ve `ng build --configuration=xampp`
 Options -Indexes -MultiViews
 
 <IfModule mod_rewrite.c>
 RewriteEngine On
-# Alt klasör kurulumu: http://localhost/b2b/ — sanal host kökü doğrudan bu klasörse RewriteBase /
-RewriteBase /b2b/
+RewriteBase /
 
-# .sql dosyalarına tarayıcıdan erişimi kapat (api/schema.sql, migrations, backups, vb.)
+# .sql dosyalarına tarayıcıdan erişimi kapat
 RewriteCond %{REQUEST_URI} \.sql(?:$|\?) [NC]
 RewriteRule ^ - [F,L]
 
-# API (PHP) — yönlendirme yok
+# API (PHP)
 RewriteRule ^api/ - [L]
 
-# Bu dizinde doğrudan var olan dosya veya klasör
+# Bu dizinde doğrudan var olan dosya veya klasör (build köke kopyalandıysa burada biter)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Angular build içindeki statik dosyalar (js, css, media, assets, …)
-# XAMPP: DocumentRoot genelde htdocs → …/htdocs/b2b/… | Sanal host kökü b2b ise …/b2b/…
+# Derleme çıktısı alt klasördeyse statik dosyaları oradan ver
 RewriteCond %{DOCUMENT_ROOT}/b2b/frontend/dist/b2b-admin/browser/$1 -f [OR]
 RewriteCond %{DOCUMENT_ROOT}/frontend/dist/b2b-admin/browser/$1 -f
 RewriteRule ^(.*)$ frontend/dist/b2b-admin/browser/$1 [L]
 
-# SPA: client route’lar → index.html
+# Bilinen statik uzantılar: dosya yoksa index.html VERME (yanlış MIME → "Failed to fetch dynamically imported module")
+RewriteCond %{REQUEST_URI} \.(?:js|mjs|css|map|json|webp|png|jpe?g|gif|svg|ico|woff2?|ttf|eot|webmanifest)$ [NC]
+RewriteRule ^ - [R=404,L]
+
+# SPA (yalnızca “sayfa” rotaları)
 RewriteRule ^.*$ frontend/dist/b2b-admin/browser/index.html [L]
 </IfModule>
 
