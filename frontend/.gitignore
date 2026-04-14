@@ -7,7 +7,7 @@ pnpm-debug.log*
 package-lock.json.bak
 
 # Angular build & cache
-dist/
+
 tmp/
 out-tsc/
 .angular/
