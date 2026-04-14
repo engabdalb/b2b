@@ -19,6 +19,8 @@ export const Permission = {
   reportsExport: 'reports.export',
   settingsView: 'settings.view',
   settingsEdit: 'settings.edit',
+  /** İade edilebilir ambalaj (depozito) bakiye ve hareketler */
+  depositsView: 'deposits.view',
   _all: '*',
 } as const;
 
@@ -32,10 +34,11 @@ const VIEW_ONLY: PermissionId[] = [
   Permission.ordersView,
   Permission.reportsView,
   Permission.settingsView,
+  Permission.depositsView,
 ];
 
 /** Bayi: siparişleri görüntüleme ve yeni sipariş; gelen sipariş düzenleme yok */
-const DEALER_PERMS: PermissionId[] = [Permission.ordersView, Permission.ordersCreate];
+const DEALER_PERMS: PermissionId[] = [Permission.ordersView, Permission.ordersCreate, Permission.depositsView];
 
 /** Rol → izin kümesi (frontend mock; API ile eşleşecek) */
 export const ROLE_PERMISSIONS: Record<Role, PermissionId[]> = {

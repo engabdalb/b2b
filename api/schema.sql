@@ -32,13 +32,25 @@ CREATE TABLE IF NOT EXISTS b2b_units (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS b2b_returnable_packaging_types (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  sort_order SMALLINT NOT NULL DEFAULT 0,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS b2b_products (
   id INT AUTO_INCREMENT PRIMARY KEY,
   sku VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(255) NOT NULL,
   unit_id INT NOT NULL,
   price DECIMAL(12,2) NOT NULL,
-  CONSTRAINT fk_b2b_product_unit FOREIGN KEY (unit_id) REFERENCES b2b_units (id) ON DELETE RESTRICT ON UPDATE CASCADE
+  returnable_packaging_type_id INT NULL DEFAULT NULL,
+  returnable_packaging_units_per_qty DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+  CONSTRAINT fk_b2b_product_unit FOREIGN KEY (unit_id) REFERENCES b2b_units (id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_b2b_product_returnable_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS b2b_orders (
@@ -78,6 +90,32 @@ CREATE TABLE IF NOT EXISTS b2b_order_items (
   KEY idx_boi_order (order_id),
   KEY idx_boi_product (product_id),
   UNIQUE KEY uk_boi_order_sort (order_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS b2b_dealer_returnable_packaging_balances (
+  dealer_id INT NOT NULL,
+  returnable_packaging_type_id INT NOT NULL,
+  quantity DECIMAL(12,3) NOT NULL DEFAULT 0.000,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (dealer_id, returnable_packaging_type_id),
+  CONSTRAINT fk_brpb_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE CASCADE,
+  CONSTRAINT fk_brpb_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS b2b_returnable_packaging_movements (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  dealer_id INT NOT NULL,
+  returnable_packaging_type_id INT NOT NULL,
+  quantity_delta DECIMAL(12,3) NOT NULL,
+  reason ENUM('order_sync','order_cancelled','manual_adjustment','deposit_return') NOT NULL DEFAULT 'order_sync',
+  reference_order_id INT NULL DEFAULT NULL,
+  note VARCHAR(500) NULL DEFAULT NULL COMMENT 'Manuel hareket açıklaması',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_brpm_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE CASCADE,
+  CONSTRAINT fk_brpm_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_brpm_order FOREIGN KEY (reference_order_id) REFERENCES b2b_orders (id) ON DELETE CASCADE,
+  KEY idx_brpm_order (reference_order_id),
+  KEY idx_brpm_dealer_type (dealer_id, returnable_packaging_type_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Faturalar: siparişten anlık kopya (kalemler düzenlenmez); durum: beklemede / onaylı / iptal.
@@ -223,37 +261,46 @@ INSERT INTO b2b_units (id, code, name, sort_order, active) VALUES
   (6, 'paket', 'Paket', 60, 1)
 ON DUPLICATE KEY UPDATE name = VALUES(name), sort_order = VALUES(sort_order), active = VALUES(active);
 
--- Ürün kataloğu: sku = kısa kod; unit_id → b2b_units. Örnek fiyatlar TRY.
-INSERT INTO b2b_products (sku, name, unit_id, price) VALUES
-  ('cbk', 'Cevizli baklava', 1, 1175.00),
-  ('fbk', 'Fıstıklı baklava', 1, 1340.00),
-  ('ttf', 'Tereyağlı fıstıklı', 1, 1210.00),
-  ('tuu', 'Tepsi üstü', 1, 1100.00),
-  ('kru', 'Kuru baklava', 1, 965.00),
-  ('sgb', 'Soğuk baklava', 1, 1475.00),
-  ('sgk', 'Soğuk kadayıf', 1, 1300.00),
-  ('srm', 'Sarma', 1, 1285.00),
-  ('mdy', 'Midye', 1, 1390.00),
-  ('ozl', 'Özel', 1, 1620.00),
-  ('lkm', 'Lokma', 1, 950.00),
-  ('hsr', 'Hışır', 1, 1095.00),
-  ('sby', 'Şöbiyet', 1, 1260.00),
-  ('ceb', 'Cevizli ev baklavası', 1, 1040.00),
-  ('fbr', 'Fıstıklı burma', 1, 1315.00),
-  ('cbr', 'Cevizli burma', 1, 1190.00),
-  ('sep', 'Şekerpare', 1, 875.00),
-  ('fkd', 'Fıstıklı kadayıf', 1, 1188.00),
-  ('ckd', 'Cevizli kadayıf', 1, 1075.00),
-  ('hkd', 'Hasır kadayıf', 1, 1150.00),
-  ('kkd', 'Kaymaklı kadayıf', 1, 1245.00),
-  ('nkt', 'N.Kesim tereyağlı', 1, 1510.00),
-  ('prn', 'Prenses', 1, 1140.00),
-  ('hvc', 'Havuç', 1, 1015.00),
-  ('akz', 'Ankara özel', 1, 1565.00),
-  ('kvr', 'Kıvrım', 1, 1890.00),
-  ('kko', 'Kaymaklı özel', 1, 1580.00),
-  ('tep', 'Tepsi', 1, 1200.00)
-ON DUPLICATE KEY UPDATE name = VALUES(name), unit_id = VALUES(unit_id), price = VALUES(price);
+INSERT INTO b2b_returnable_packaging_types (id, code, name, sort_order, active) VALUES
+  (1, 'tray', 'Tepsi', 10, 1)
+ON DUPLICATE KEY UPDATE name = VALUES(name), sort_order = VALUES(sort_order), active = VALUES(active);
+
+-- Ürün kataloğu: sku = kısa kod; unit_id → b2b_units. Tepsi birimi (1): depozito tipi tray (id=1), satış başına 1 ambalaj.
+INSERT INTO b2b_products (sku, name, unit_id, price, returnable_packaging_type_id, returnable_packaging_units_per_qty) VALUES
+  ('cbk', 'Cevizli baklava', 1, 1175.00, 1, 1.000),
+  ('fbk', 'Fıstıklı baklava', 1, 1340.00, 1, 1.000),
+  ('ttf', 'Tereyağlı fıstıklı', 1, 1210.00, 1, 1.000),
+  ('tuu', 'Tepsi üstü', 1, 1100.00, 1, 1.000),
+  ('kru', 'Kuru baklava', 1, 965.00, 1, 1.000),
+  ('sgb', 'Soğuk baklava', 1, 1475.00, 1, 1.000),
+  ('sgk', 'Soğuk kadayıf', 1, 1300.00, 1, 1.000),
+  ('srm', 'Sarma', 1, 1285.00, 1, 1.000),
+  ('mdy', 'Midye', 1, 1390.00, 1, 1.000),
+  ('ozl', 'Özel', 1, 1620.00, 1, 1.000),
+  ('lkm', 'Lokma', 1, 950.00, 1, 1.000),
+  ('hsr', 'Hışır', 1, 1095.00, 1, 1.000),
+  ('sby', 'Şöbiyet', 1, 1260.00, 1, 1.000),
+  ('ceb', 'Cevizli ev baklavası', 1, 1040.00, 1, 1.000),
+  ('fbr', 'Fıstıklı burma', 1, 1315.00, 1, 1.000),
+  ('cbr', 'Cevizli burma', 1, 1190.00, 1, 1.000),
+  ('sep', 'Şekerpare', 1, 875.00, 1, 1.000),
+  ('fkd', 'Fıstıklı kadayıf', 1, 1188.00, 1, 1.000),
+  ('ckd', 'Cevizli kadayıf', 1, 1075.00, 1, 1.000),
+  ('hkd', 'Hasır kadayıf', 1, 1150.00, 1, 1.000),
+  ('kkd', 'Kaymaklı kadayıf', 1, 1245.00, 1, 1.000),
+  ('nkt', 'N.Kesim tereyağlı', 1, 1510.00, 1, 1.000),
+  ('prn', 'Prenses', 1, 1140.00, 1, 1.000),
+  ('hvc', 'Havuç', 1, 1015.00, 1, 1.000),
+  ('akz', 'Ankara özel', 1, 1565.00, 1, 1.000),
+  ('kvr', 'Kıvrım', 1, 1890.00, 1, 1.000),
+  ('kko', 'Kaymaklı özel', 1, 1580.00, 1, 1.000),
+  ('tep', 'Tepsi', 1, 1200.00, 1, 1.000)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  unit_id = VALUES(unit_id),
+  price = VALUES(price),
+  returnable_packaging_type_id = VALUES(returnable_packaging_type_id),
+  returnable_packaging_units_per_qty = VALUES(returnable_packaging_units_per_qty);
 
 -- Aynı ürünler — kilogram (b2b_units.id = 2). Fiyatlar kg başına örnek; gerektiğinde güncelleyin.
 INSERT INTO b2b_products (sku, name, unit_id, price) VALUES

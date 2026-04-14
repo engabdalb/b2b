@@ -42,12 +42,19 @@ export class ProductsPageComponent implements OnInit {
     name: ['', Validators.required],
     unitId: ['', Validators.required],
     price: this.fb.control<number | null>(null, [Validators.required, Validators.min(0)]),
+    returnablePackagingTypeId: [''],
+    returnablePackagingUnitsPerQty: this.fb.control<number>(1, [
+      Validators.required,
+      Validators.min(0.001),
+    ]),
   });
 
   readonly unitOptions = () => this.unitsData.units().filter((u) => u.active);
+  readonly packagingTypeOptions = () => this.data.packagingTypes().filter((t) => t.active);
 
   ngOnInit(): void {
     this.unitsData.load();
+    this.data.loadPackagingTypes();
     this.data.load();
   }
 
@@ -60,6 +67,8 @@ export class ProductsPageComponent implements OnInit {
       name: '',
       unitId: first?.id ?? '',
       price: null,
+      returnablePackagingTypeId: '',
+      returnablePackagingUnitsPerQty: 1,
     });
     this.formOpen.set(true);
   }
@@ -72,6 +81,11 @@ export class ProductsPageComponent implements OnInit {
       name: p.name,
       unitId: p.unitId,
       price: p.price,
+      returnablePackagingTypeId: p.returnablePackagingTypeId ?? '',
+      returnablePackagingUnitsPerQty:
+        p.returnablePackagingUnitsPerQty !== undefined && p.returnablePackagingUnitsPerQty !== null
+          ? p.returnablePackagingUnitsPerQty
+          : 1,
     });
     this.formOpen.set(true);
   }
@@ -105,6 +119,10 @@ export class ProductsPageComponent implements OnInit {
       this.formOpen.set(false);
     };
 
+    const tid = v.returnablePackagingTypeId?.trim() ?? '';
+    const unitsPer = Number(v.returnablePackagingUnitsPerQty);
+    const unitsPerSafe = Number.isFinite(unitsPer) && unitsPer > 0 ? unitsPer : 1;
+
     if (v.id) {
       const payload: ProductDto = {
         id: v.id,
@@ -113,6 +131,8 @@ export class ProductsPageComponent implements OnInit {
         unitId: v.unitId,
         unit: '',
         price,
+        returnablePackagingTypeId: tid !== '' ? tid : null,
+        returnablePackagingUnitsPerQty: unitsPerSafe,
       };
       this.data.update(payload).subscribe({
         next: (r: ProductMutationResponse) => finish(!r.ok ? this.mapMutationError(r) : null),
@@ -126,6 +146,8 @@ export class ProductsPageComponent implements OnInit {
           name: v.name.trim(),
           unit_id: v.unitId,
           price,
+          returnable_packaging_type_id: tid !== '' ? tid : null,
+          returnable_packaging_units_per_qty: unitsPerSafe,
         })
         .subscribe({
           next: (r: ProductMutationResponse) => finish(!r.ok ? this.mapMutationError(r) : null),

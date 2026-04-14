@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { ProductDto } from '../../core/models/api.types';
+import { ProductDto, ReturnablePackagingTypeDto } from '../../core/models/api.types';
 import { ApiService } from '../../core/services/api.service';
 
 export interface ProductMutationResponse {
@@ -16,11 +16,17 @@ interface ProductsApiResponse {
   items?: ProductDto[];
 }
 
+interface PackagingTypesApiResponse {
+  ok: boolean;
+  items?: ReturnablePackagingTypeDto[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProductsMockService {
   private readonly api = inject(ApiService);
 
   readonly products = signal<ProductDto[]>([]);
+  readonly packagingTypes = signal<ReturnablePackagingTypeDto[]>([]);
 
   private hasApi(): boolean {
     return !!environment.apiUrl?.trim();
@@ -37,7 +43,24 @@ export class ProductsMockService {
     });
   }
 
-  create(payload: Pick<ProductDto, 'sku' | 'name' | 'price'> & { unit_id: string }): Observable<ProductMutationResponse> {
+  loadPackagingTypes(): void {
+    if (!this.hasApi()) {
+      this.packagingTypes.set([]);
+      return;
+    }
+    this.api.get<PackagingTypesApiResponse>('b2b_returnable_packaging_types_get').subscribe({
+      next: (r) => this.packagingTypes.set(r.items ?? []),
+      error: () => this.packagingTypes.set([]),
+    });
+  }
+
+  create(
+    payload: Pick<ProductDto, 'sku' | 'name' | 'price'> & {
+      unit_id: string;
+      returnable_packaging_type_id?: string | null;
+      returnable_packaging_units_per_qty?: number;
+    },
+  ): Observable<ProductMutationResponse> {
     if (!this.hasApi()) {
       return of({ ok: false, error: 'no_api', message: 'API adresi tanımlı değil.' });
     }
@@ -57,6 +80,11 @@ export class ProductsMockService {
       name: payload.name,
       unit_id: payload.unitId,
       price: payload.price,
+      returnable_packaging_type_id:
+        payload.returnablePackagingTypeId && String(payload.returnablePackagingTypeId).trim() !== ''
+          ? String(payload.returnablePackagingTypeId).trim()
+          : null,
+      returnable_packaging_units_per_qty: payload.returnablePackagingUnitsPerQty ?? 1,
     };
     if (!this.hasApi()) {
       return of({ ok: false, error: 'no_api', message: 'API adresi tanımlı değil.' });

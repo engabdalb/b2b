@@ -27,6 +27,10 @@ $routes = [
     'b2b_units_add' => ['file' => 'b2b_units_add.php', 'roles' => ['super_admin']],
     'b2b_users_get' => ['file' => 'b2b_users_get.php', 'roles' => ['super_admin', 'viewer']],
     'b2b_users_save' => ['file' => 'b2b_users_save.php', 'roles' => ['super_admin']],
+    'b2b_returnable_packaging_types_get' => ['file' => 'b2b_returnable_packaging_types_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
+    'b2b_returnable_packaging_balances_get' => ['file' => 'b2b_returnable_packaging_balances_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
+    'b2b_returnable_packaging_movements_get' => ['file' => 'b2b_returnable_packaging_movements_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
+    'b2b_returnable_packaging_movement_post' => ['file' => 'b2b_returnable_packaging_movement_post.php', 'roles' => ['super_admin']],
 ];
 
 if (!isset($routes[$service])) {

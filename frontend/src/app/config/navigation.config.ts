@@ -4,6 +4,7 @@ export type NavIcon =
   | 'dashboard'
   | 'orders'
   | 'invoices'
+  | 'deposits'
   | 'dealers'
   | 'products'
   | 'units'
@@ -41,6 +42,13 @@ export const NAVIGATION_ITEMS: NavItemConfig[] = [
     i18nKey: 'nav.invoices',
     icon: 'invoices',
     permissions: [Permission.ordersView],
+  },
+  {
+    navKey: 'deposits',
+    path: '/deposits',
+    i18nKey: 'nav.deposits',
+    icon: 'deposits',
+    permissions: [Permission.depositsView],
   },
   {
     navKey: 'dealers',

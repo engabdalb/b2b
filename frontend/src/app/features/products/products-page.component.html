@@ -15,6 +15,8 @@
             <th>{{ 'products.col.sku' | t }}</th>
             <th>{{ 'products.col.name' | t }}</th>
             <th>{{ 'products.col.unit' | t }}</th>
+            <th>{{ 'products.col.packagingType' | t }}</th>
+            <th>{{ 'products.col.packagingPerQty' | t }}</th>
             <th>{{ 'products.col.price' | t }}</th>
             <th *appCan="perm.productsEdit" class="products-table__actions-col"></th>
           </tr>
@@ -28,6 +30,14 @@
                 {{ { code: p.unitCode ?? '', name: p.unit } | unitName }}
                 @if (p.unitCode) {
                   <span class="products-table__unit-code">({{ p.unitCode }})</span>
+                }
+              </td>
+              <td>{{ p.returnablePackagingTypeName ?? '—' }}</td>
+              <td>
+                @if (p.returnablePackagingTypeId) {
+                  {{ p.returnablePackagingUnitsPerQty ?? 1 | number: '1.0-3' : i18n.numberLocale() }}
+                } @else {
+                  —
                 }
               </td>
               <td>{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
@@ -97,6 +107,31 @@
         <input class="field__input" type="number" formControlName="price" min="0" step="0.01" />
         @if (form.controls.price.touched && form.controls.price.invalid) {
           <span class="field__hint">{{ 'products.priceInvalid' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.packagingType' | t }}</span>
+        <select class="field__input" formControlName="returnablePackagingTypeId">
+          <option value="">{{ 'products.packagingNone' | t }}</option>
+          @for (t of packagingTypeOptions(); track t.id) {
+            <option [value]="t.id">{{ t.name }} ({{ t.code }})</option>
+          }
+        </select>
+        <span class="field__hint">{{ 'products.packagingHint' | t }}</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.packagingPerQty' | t }}</span>
+        <input
+          class="field__input"
+          type="number"
+          formControlName="returnablePackagingUnitsPerQty"
+          min="0.001"
+          step="0.001"
+        />
+        @if (form.controls.returnablePackagingUnitsPerQty.touched && form.controls.returnablePackagingUnitsPerQty.invalid) {
+          <span class="field__hint">{{ 'products.packagingUnitsInvalid' | t }}</span>
         }
       </label>
 

@@ -41,6 +41,12 @@ export const routes: Routes = [
         data: { permissions: [Permission.ordersView] },
       },
       {
+        path: 'deposits',
+        loadComponent: () => import('./features/deposits').then((m) => m.DepositsPageComponent),
+        canActivate: [permissionGuard],
+        data: { permissions: [Permission.depositsView] },
+      },
+      {
         path: 'dealers',
         loadComponent: () =>
           import('./features/dealers/dealers-page.component').then((m) => m.DealersPageComponent),

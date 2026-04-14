@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/helper/b2b_auth.php';
+require_once __DIR__ . '/helper/b2b_returnable_packaging.php';
 require_method('POST');
 
 global $pdo;
@@ -173,6 +174,8 @@ try {
         ':tc' => (int) round($sumQty),
         ':id' => $orderId,
     ]);
+
+    b2b_returnable_packaging_sync_order($pdo, $orderId, $dealerId, 'pending');
 
     $pdo->commit();
 } catch (PDOException $e) {

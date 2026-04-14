@@ -1,0 +1,190 @@
+<app-page-header titleKey="deposits.title" subtitleKey="deposits.subtitle">
+  <button type="button" class="btn btn--secondary" (click)="reload()" [disabled]="data.loading()">
+    {{ 'common.refresh' | t }}
+  </button>
+</app-page-header>
+
+@if (needsDealerFilter()) {
+  <section class="list-filters deposits-filters" [attr.aria-label]="'filters.sectionLabel' | t">
+    <div class="list-filters__grid">
+      <label class="list-filters__field list-filters__field--grow">
+        <span class="list-filters__label">{{ 'deposits.col.dealer' | t }}</span>
+        <select
+          class="field__input"
+          [value]="filterDealerId()"
+          (change)="filterDealerId.set($any($event.target).value)"
+        >
+          <option value="">{{ 'filters.allDealers' | t }}</option>
+          @for (dealer of dealersData.dealers(); track dealer.id) {
+            <option [value]="dealer.id">{{ dealer.name }} — {{ dealer.region }}</option>
+          }
+        </select>
+      </label>
+    </div>
+    <div class="list-filters__actions">
+      <button type="button" class="btn btn--primary" (click)="applyDealerFilter()">{{ 'filters.apply' | t }}</button>
+    </div>
+  </section>
+}
+
+@if (data.error(); as err) {
+  <p class="deposits-banner deposits-banner--error">{{ errText(err) }}</p>
+}
+
+@if (isSuperAdmin()) {
+  <section class="deposits-card" [attr.aria-label]="'deposits.formSection' | t">
+    <h2 class="deposits-card__title">{{ 'deposits.formSection' | t }}</h2>
+    @if (formError(); as fe) {
+      <p class="deposits-banner deposits-banner--error">{{ errText(fe) }}</p>
+    }
+    <div class="list-filters__grid">
+      <label class="list-filters__field">
+        <span class="list-filters__label">{{ 'deposits.kind' | t }}</span>
+        <select
+          class="field__input"
+          [value]="formKind()"
+          (change)="setFormKind($any($event.target).value)"
+        >
+          <option value="deposit_return">{{ 'deposits.kind.deposit_return' | t }}</option>
+          <option value="manual_adjustment">{{ 'deposits.kind.manual_adjustment' | t }}</option>
+        </select>
+      </label>
+      @if (needsDealerFilter()) {
+        <label class="list-filters__field">
+          <span class="list-filters__label">{{ 'deposits.col.dealer' | t }}</span>
+          <select
+            class="field__input"
+            [value]="formDealerId()"
+            (change)="formDealerId.set($any($event.target).value)"
+          >
+            <option value="">{{ 'filters.allDealers' | t }}</option>
+            @for (dealer of dealersData.dealers(); track dealer.id) {
+              <option [value]="dealer.id">{{ dealer.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      <label class="list-filters__field">
+        <span class="list-filters__label">{{ 'deposits.col.type' | t }}</span>
+        <select
+          class="field__input"
+          [value]="formTypeId()"
+          (change)="formTypeId.set($any($event.target).value)"
+        >
+          <option value="">{{ 'deposits.selectType' | t }}</option>
+          @for (t of activeTypes(); track t.id) {
+            <option [value]="t.id">{{ t.name }} ({{ t.code }})</option>
+          }
+        </select>
+      </label>
+      @if (formKind() === 'deposit_return') {
+        <label class="list-filters__field">
+          <span class="list-filters__label">{{ 'deposits.quantity' | t }}</span>
+          <input
+            class="field__input"
+            type="text"
+            inputmode="decimal"
+            [value]="formQuantity()"
+            (input)="formQuantity.set($any($event.target).value)"
+          />
+        </label>
+      } @else {
+        <label class="list-filters__field">
+          <span class="list-filters__label">{{ 'deposits.signedDelta' | t }}</span>
+          <input
+            class="field__input"
+            type="text"
+            inputmode="decimal"
+            [value]="formSignedDelta()"
+            (input)="formSignedDelta.set($any($event.target).value)"
+          />
+        </label>
+      }
+      <label class="list-filters__field list-filters__field--grow">
+        <span class="list-filters__label">{{ 'deposits.note' | t }}</span>
+        <input
+          class="field__input"
+          type="text"
+          maxlength="500"
+          [value]="formNote()"
+          (input)="formNote.set($any($event.target).value)"
+        />
+      </label>
+    </div>
+    <div class="list-filters__actions">
+      <button type="button" class="btn btn--primary" (click)="submitForm()" [disabled]="formBusy()">
+        {{ formBusy() ? ('deposits.submitting' | t) : ('deposits.submit' | t) }}
+      </button>
+    </div>
+  </section>
+} @else {
+  <p class="deposits-hint">{{ 'deposits.adminOnlyForm' | t }}</p>
+}
+
+<section class="deposits-card" [attr.aria-label]="'deposits.balancesSection' | t">
+  <h2 class="deposits-card__title">{{ 'deposits.balancesSection' | t }}</h2>
+  @if (data.loading()) {
+    <p class="deposits-muted">…</p>
+  } @else if (data.balances().length === 0) {
+    <p class="deposits-muted">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="deposits-table-scroll">
+      <table class="deposits-table">
+        <thead>
+          <tr>
+            <th>{{ 'deposits.col.dealer' | t }}</th>
+            <th>{{ 'deposits.col.type' | t }}</th>
+            <th>{{ 'deposits.col.balance' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (b of data.balances(); track b.dealerId + '-' + b.typeId) {
+            <tr>
+              <td>{{ b.dealerName }}</td>
+              <td>{{ b.typeName }}</td>
+              <td>{{ b.quantity | number : '1.0-3' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>
+
+<section class="deposits-card" [attr.aria-label]="'deposits.movementsSection' | t">
+  <h2 class="deposits-card__title">{{ 'deposits.movementsSection' | t }}</h2>
+  @if (data.loading()) {
+    <p class="deposits-muted">…</p>
+  } @else if (data.movements().length === 0) {
+    <p class="deposits-muted">{{ 'table.empty' | t }}</p>
+  } @else {
+    <div class="deposits-table-scroll">
+      <table class="deposits-table">
+        <thead>
+          <tr>
+            <th>{{ 'deposits.col.date' | t }}</th>
+            <th>{{ 'deposits.col.dealer' | t }}</th>
+            <th>{{ 'deposits.col.type' | t }}</th>
+            <th>{{ 'deposits.col.delta' | t }}</th>
+            <th>{{ 'deposits.col.reason' | t }}</th>
+            <th>{{ 'deposits.col.order' | t }}</th>
+            <th>{{ 'deposits.note' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of data.movements(); track m.id) {
+            <tr>
+              <td>{{ m.createdAt }}</td>
+              <td>{{ m.dealerName }}</td>
+              <td>{{ m.typeName }}</td>
+              <td>{{ m.quantityDelta | number : '1.0-3' }}</td>
+              <td>{{ reasonI18n(m.reason) }}</td>
+              <td>{{ m.referenceOrderExternalId ?? '—' }}</td>
+              <td>{{ m.note ?? '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

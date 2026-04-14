@@ -35,6 +35,43 @@ export interface ProductDto {
   /** Görünen birim adı */
   unit: string;
   price: number;
+  /** İade edilebilir ambalaj türü (ürün başına; NULL = ambalaj borcu yok) */
+  returnablePackagingTypeId?: string | null;
+  returnablePackagingUnitsPerQty?: number;
+  returnablePackagingTypeCode?: string | null;
+  returnablePackagingTypeName?: string | null;
+}
+
+export interface ReturnablePackagingTypeDto {
+  id: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+export interface ReturnablePackagingBalanceDto {
+  dealerId: string;
+  dealerName: string;
+  typeId: string;
+  typeCode: string;
+  typeName: string;
+  quantity: number;
+}
+
+export interface ReturnablePackagingMovementDto {
+  id: string;
+  dealerId: string;
+  dealerName: string;
+  typeId: string;
+  typeCode: string;
+  typeName: string;
+  quantityDelta: number;
+  reason: string;
+  referenceOrderId: string | null;
+  referenceOrderExternalId: string | null;
+  note: string | null;
+  createdAt: string;
 }
 
 /** Sipariş satırı — fiyatlar sipariş anına sabitlenir; matrah line_total, KDV tutarı ayrı saklanır. */

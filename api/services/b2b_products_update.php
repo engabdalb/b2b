@@ -32,6 +32,29 @@ if ($price < 0) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Fiyat negatif olamaz.'], 400);
 }
 
+$typeRaw = $body['returnable_packaging_type_id'] ?? $body['returnablePackagingTypeId'] ?? null;
+$returnableTypeId = null;
+if ($typeRaw !== null && $typeRaw !== '' && is_numeric($typeRaw)) {
+    $tid = (int) $typeRaw;
+    if ($tid > 0) {
+        $returnableTypeId = $tid;
+    }
+}
+
+$unitsPerRaw = $body['returnable_packaging_units_per_qty'] ?? $body['returnablePackagingUnitsPerQty'] ?? 1;
+$unitsPer = round((float) $unitsPerRaw, 3);
+if ($unitsPer <= 0 || $unitsPer > 999999.999) {
+    json_response(['ok' => false, 'error' => 'validation', 'message' => 'Ambalaj çarpanı 0 ile 999999 arasında olmalı.'], 400);
+}
+
+if ($returnableTypeId !== null) {
+    $tCheck = $pdo->prepare('SELECT id FROM b2b_returnable_packaging_types WHERE id = :id AND active = 1 LIMIT 1');
+    $tCheck->execute([':id' => $returnableTypeId]);
+    if (!$tCheck->fetchColumn()) {
+        json_response(['ok' => false, 'error' => 'validation', 'message' => 'Geçersiz iade edilebilir ambalaj türü.'], 400);
+    }
+}
+
 $check = $pdo->prepare('SELECT id FROM b2b_products WHERE id = :id LIMIT 1');
 $check->execute([':id' => $id]);
 if (!$check->fetch()) {
@@ -49,7 +72,9 @@ if (!$uRow) {
 }
 
 $stmt = $pdo->prepare(
-    'UPDATE b2b_products SET sku = :sku, name = :name, unit_id = :uid, price = :price WHERE id = :id',
+    'UPDATE b2b_products SET sku = :sku, name = :name, unit_id = :uid, price = :price,
+     returnable_packaging_type_id = :rtid, returnable_packaging_units_per_qty = :rper
+     WHERE id = :id',
 );
 
 try {
@@ -58,6 +83,8 @@ try {
         ':name' => $name,
         ':uid' => $unitId,
         ':price' => $price,
+        ':rtid' => $returnableTypeId,
+        ':rper' => $unitsPer,
         ':id' => $id,
     ]);
 } catch (PDOException $e) {
@@ -65,6 +92,17 @@ try {
         json_response(['ok' => false, 'error' => 'duplicate_sku', 'message' => 'Bu SKU başka bir üründe kullanılıyor.'], 409);
     }
     throw $e;
+}
+
+$rtCode = null;
+$rtName = null;
+if ($returnableTypeId !== null) {
+    $rtStmt = $pdo->prepare('SELECT code, name FROM b2b_returnable_packaging_types WHERE id = :id LIMIT 1');
+    $rtStmt->execute([':id' => $returnableTypeId]);
+    if ($rtr = $rtStmt->fetch(PDO::FETCH_ASSOC)) {
+        $rtCode = (string) $rtr['code'];
+        $rtName = (string) $rtr['name'];
+    }
 }
 
 json_response([
@@ -77,5 +115,9 @@ json_response([
         'unitCode' => (string) $uRow['code'],
         'unit' => (string) $uRow['name'],
         'price' => $price,
+        'returnablePackagingTypeId' => $returnableTypeId !== null ? (string) $returnableTypeId : null,
+        'returnablePackagingUnitsPerQty' => $unitsPer,
+        'returnablePackagingTypeCode' => $rtCode,
+        'returnablePackagingTypeName' => $rtName,
     ],
 ]);
