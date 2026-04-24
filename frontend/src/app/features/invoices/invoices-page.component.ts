@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { InvoiceDto } from '../../core/models/api.types';
 import { AuthService } from '../../core/services/auth.service';
 import { I18nService } from '../../core/services/i18n.service';
@@ -19,6 +20,8 @@ export class InvoicesPageComponent implements OnInit {
   readonly invoicesData = inject(InvoicesMockService);
   readonly dealersData = inject(DealersMockService);
   private readonly auth = inject(AuthService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   protected readonly i18n = inject(I18nService);
 
   readonly isSuperAdmin = computed(() => this.auth.user().role === 'super_admin');
@@ -39,20 +42,40 @@ export class InvoicesPageComponent implements OnInit {
   readonly statusError = signal<string | null>(null);
 
   ngOnInit(): void {
-    this.invoicesData.load();
     if (this.needsDealerFilter()) {
       this.dealersData.load();
+    }
+
+    const invoiceFocus = this.route.snapshot.queryParamMap.get('invoice')?.trim() ?? '';
+    if (invoiceFocus !== '') {
+      this.filterSearch.set(invoiceFocus);
+      this.invoicesData.load({ search: invoiceFocus }).subscribe((items) => {
+        const inv = items.find((i) => i.id === invoiceFocus) ?? items[0];
+        if (inv) {
+          this.openDetail(inv);
+        }
+        void this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { invoice: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      });
+    } else {
+      this.invoicesData.load().subscribe();
     }
   }
 
   applyFilters(): void {
-    this.invoicesData.load({
-      dateFrom: this.filterDateFrom().trim() || undefined,
-      dateTo: this.filterDateTo().trim() || undefined,
-      dealerId: this.needsDealerFilter() ? (this.filterDealerId().trim() || undefined) : undefined,
-      status: (this.filterStatus() || undefined) as InvoiceDto['status'] | undefined,
-      search: this.filterSearch().trim() || undefined,
-    });
+    this.invoicesData
+      .load({
+        dateFrom: this.filterDateFrom().trim() || undefined,
+        dateTo: this.filterDateTo().trim() || undefined,
+        dealerId: this.needsDealerFilter() ? (this.filterDealerId().trim() || undefined) : undefined,
+        status: (this.filterStatus() || undefined) as InvoiceDto['status'] | undefined,
+        search: this.filterSearch().trim() || undefined,
+      })
+      .subscribe();
   }
 
   clearFilters(): void {
@@ -61,11 +84,11 @@ export class InvoicesPageComponent implements OnInit {
     this.filterDealerId.set('');
     this.filterStatus.set('');
     this.filterSearch.set('');
-    this.invoicesData.load(null);
+    this.invoicesData.load(null).subscribe();
   }
 
   refreshList(): void {
-    this.invoicesData.load();
+    this.invoicesData.load().subscribe();
   }
 
   openDetail(inv: InvoiceDto): void {

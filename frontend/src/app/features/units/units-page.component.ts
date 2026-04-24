@@ -32,7 +32,7 @@ export class UnitsPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.data.load();
+    this.data.load().subscribe();
   }
 
   openNew(): void {

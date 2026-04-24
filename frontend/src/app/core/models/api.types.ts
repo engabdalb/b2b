@@ -25,6 +25,15 @@ export interface UnitDto {
   active: boolean;
 }
 
+/** Bayi birim indirim satırı (API: tüm aktif birimler, indirim 0 olabilir) */
+export interface DealerUnitDiscountRowDto {
+  unitId: string;
+  unitCode: string;
+  unitName: string;
+  sortOrder: number;
+  discountPerUnit: number;
+}
+
 export interface ProductDto {
   id: string;
   sku: string;
@@ -34,7 +43,12 @@ export interface ProductDto {
   unitCode?: string;
   /** Görünen birim adı */
   unit: string;
+  /** Liste fiyatı (satış birimi başına) */
   price: number;
+  /** Bayi + ürünün birim türü için tanımlı indirim / birim (TRY) */
+  dealerDiscountPerUnit?: number;
+  /** İndirim sonrası birim fiyat (önizleme) */
+  effectiveUnitPrice?: number;
   /** İade edilebilir ambalaj türü (ürün başına; NULL = ambalaj borcu yok) */
   returnablePackagingTypeId?: string | null;
   returnablePackagingUnitsPerQty?: number;
@@ -97,6 +111,7 @@ export interface OrderLineDto {
 
 export interface OrderDto {
   id: string;
+  dealerId?: string;
   dealerName: string;
   status: 'pending' | 'confirmed' | 'shipped' | 'cancelled';
   /** Matrah toplamı (KDV hariç) */
@@ -167,6 +182,49 @@ export interface OrderUpdatePayload {
     discount_amount?: number;
     vat_rate?: number | null;
   }[];
+}
+
+/** Cari ekstre satırı (kronolojik; bakiye kümülatif) */
+export interface AccountMovementRowDto {
+  id: string;
+  dealerId: string;
+  movementAt: string;
+  kind: 'invoice' | 'payment' | 'invoice_cancel' | 'adjustment';
+  description: string;
+  /** Kesilen / borç artışı */
+  debit: number;
+  /** Ödeme veya mahsup (borç azalışı) */
+  credit: number;
+  /** Bu satırdan sonra kalan borç */
+  balance: number;
+  invoiceId?: string | null;
+  /** Tahsilat satırı: b2b_payments.id */
+  paymentId?: string | null;
+  paymentNote?: string | null;
+  paymentMethod?: string | null;
+  paymentReference?: string | null;
+}
+
+export interface AccountMovementsApiResponse {
+  ok: boolean;
+  items?: AccountMovementRowDto[];
+  total?: number;
+  closingBalance?: number;
+  error?: string;
+  message?: string;
+}
+
+export interface PaymentPostResponse {
+  ok: boolean;
+  paymentId?: string;
+  error?: string;
+  message?: string;
+}
+
+export interface PaymentUpdateResponse {
+  ok: boolean;
+  error?: string;
+  message?: string;
 }
 
 export interface UserListDto {

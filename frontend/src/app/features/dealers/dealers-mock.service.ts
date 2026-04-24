@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { DealerDto } from '../../core/models/api.types';
+import { DealerDto, DealerUnitDiscountRowDto } from '../../core/models/api.types';
 import { ApiService } from '../../core/services/api.service';
 
 export interface DealerMutationResponse {
@@ -14,6 +14,19 @@ export interface DealerMutationResponse {
 interface DealersApiResponse {
   ok: boolean;
   items?: DealerDto[];
+}
+
+interface UnitDiscountsGetResponse {
+  ok: boolean;
+  items?: DealerUnitDiscountRowDto[];
+  message?: string;
+}
+
+interface UnitDiscountsSaveResponse {
+  ok: boolean;
+  saved?: number;
+  message?: string;
+  error?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -69,5 +82,25 @@ export class DealersMockService {
         }
       }),
     );
+  }
+
+  getUnitDiscounts(dealerId: string): Observable<UnitDiscountsGetResponse> {
+    if (!this.hasApi()) {
+      return of({ ok: false, message: 'API adresi tanımlı değil.' });
+    }
+    return this.api.get<UnitDiscountsGetResponse>('b2b_dealer_unit_discounts_get', { dealer_id: dealerId });
+  }
+
+  saveUnitDiscounts(
+    dealerId: string,
+    rows: { unit_id: string; discount_per_unit: number }[],
+  ): Observable<UnitDiscountsSaveResponse> {
+    if (!this.hasApi()) {
+      return of({ ok: false, error: 'no_api', message: 'API adresi tanımlı değil.' });
+    }
+    return this.api.post<UnitDiscountsSaveResponse>('b2b_dealer_unit_discounts_save', {
+      dealer_id: dealerId,
+      rows,
+    });
   }
 }

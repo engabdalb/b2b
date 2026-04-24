@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   InvoiceDto,
@@ -85,7 +85,10 @@ export class InvoicesMockService {
     return !!environment.apiUrl?.trim();
   }
 
-  load(filters?: Partial<InvoicesListFilters> | null): void {
+  /**
+   * Fatura listesini yükler; Observable tamamlanınca `invoices` sinyali güncellenmiş olur.
+   */
+  load(filters?: Partial<InvoicesListFilters> | null): Observable<InvoiceDto[]> {
     if (filters === null) {
       this.lastFilters = {};
     } else if (filters !== undefined) {
@@ -93,12 +96,16 @@ export class InvoicesMockService {
     }
     if (!this.hasApi()) {
       this.invoices.set([]);
-      return;
+      return of([]);
     }
-    this.api.get<InvoicesApiResponse>('b2b_invoices_get', serializeInvoicesFilters(this.lastFilters)).subscribe({
-      next: (r) => this.invoices.set(withInvoiceTotals(r.items ?? [])),
-      error: () => this.invoices.set([]),
-    });
+    return this.api.get<InvoicesApiResponse>('b2b_invoices_get', serializeInvoicesFilters(this.lastFilters)).pipe(
+      map((r) => withInvoiceTotals(r.items ?? [])),
+      tap((items) => this.invoices.set(items)),
+      catchError(() => {
+        this.invoices.set([]);
+        return of([]);
+      }),
+    );
   }
 
   setStatus(payload: InvoiceSetStatusPayload): Observable<InvoiceFromOrderResponse> {
@@ -108,7 +115,7 @@ export class InvoicesMockService {
     return this.api.post<InvoiceFromOrderResponse>('b2b_invoice_set_status', payload).pipe(
       tap((r) => {
         if (r.ok) {
-          this.load();
+          this.load().subscribe();
         }
       }),
     );

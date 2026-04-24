@@ -1,0 +1,191 @@
+<app-page-header titleKey="ledger.title" subtitleKey="ledger.subtitle">
+  <button type="button" class="btn btn--secondary" (click)="reloadMovements()" [disabled]="loading() || !selectedDealerId()">
+    {{ 'common.refresh' | t }}
+  </button>
+</app-page-header>
+
+<div class="ledger-layout">
+  @if (!isDealerUser()) {
+    <aside class="ledger-sidebar" [attr.aria-label]="'ledger.dealerList' | t">
+      <h2 class="ledger-sidebar__title">{{ 'ledger.dealerList' | t }}</h2>
+      <label class="ledger-dealer-search">
+        <span class="visually-hidden">{{ 'ledger.dealerSearch' | t }}</span>
+        <input
+          type="search"
+          class="field__input ledger-dealer-search__input"
+          [attr.placeholder]="'ledger.dealerSearchPlaceholder' | t"
+          [value]="dealerSearchQuery()"
+          (input)="dealerSearchQuery.set($any($event.target).value)"
+          autocomplete="off"
+        />
+      </label>
+      <ul class="ledger-dealer-list">
+        @for (d of dealersFiltered(); track d.id) {
+          <li>
+            <button
+              type="button"
+              class="ledger-dealer-list__btn"
+              [class.ledger-dealer-list__btn--active]="selectedDealerId() === d.id"
+              (click)="selectDealer(d.id)"
+            >
+              <span class="ledger-dealer-list__name">{{ d.name }}</span>
+              <span class="ledger-dealer-list__meta">{{ d.region }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    </aside>
+  }
+
+  <section class="ledger-main">
+    @if (!selectedDealerId()) {
+      <p class="ledger-hint">{{ 'ledger.selectDealerHint' | t }}</p>
+    } @else {
+      @if (loadError(); as err) {
+        <p class="ledger-banner ledger-banner--error">{{ err | t }}</p>
+      }
+
+      <div class="ledger-summary">
+        <span class="ledger-summary__label">{{ 'ledger.closingBalance' | t }}</span>
+        @if (loading()) {
+          <span class="ledger-summary__value">…</span>
+        } @else if (closingBalance() !== null) {
+          <span class="ledger-summary__value" [class.ledger-summary__value--danger]="(closingBalance() ?? 0) > 0">
+            {{ closingBalance()! | number: '1.2-2' }} ₺
+          </span>
+        } @else {
+          <span class="ledger-summary__value">—</span>
+        }
+      </div>
+
+      @if (isSuperAdmin()) {
+        <div class="ledger-pay-card" id="ledger-pay-card">
+          <h3 class="ledger-pay-card__title">
+            {{ (editingPaymentId() ? 'ledger.editPaymentTitle' : 'ledger.recordPayment') | t }}
+          </h3>
+          @if (payError(); as pe) {
+            <p class="ledger-banner ledger-banner--error">{{ pe | t }}</p>
+          }
+          @if (payOk(); as ok) {
+            <p class="ledger-banner ledger-banner--ok">{{ ok | t }}</p>
+          }
+          <div class="ledger-pay-grid">
+            <label class="ledger-field">
+              <span class="ledger-field__label">{{ 'ledger.col.amount' | t }}</span>
+              <input class="field__input" type="text" inputmode="decimal" [value]="payAmount()" (input)="payAmount.set($any($event.target).value)" />
+            </label>
+            <label class="ledger-field">
+              <span class="ledger-field__label">{{ 'ledger.col.method' | t }}</span>
+              <select class="field__input" [value]="payMethod()" (change)="payMethod.set($any($event.target).value)">
+                <option value="bank_transfer">{{ 'ledger.method.bank_transfer' | t }}</option>
+                <option value="credit_card">{{ 'ledger.method.credit_card' | t }}</option>
+                <option value="check">{{ 'ledger.method.check' | t }}</option>
+                <option value="cash">{{ 'ledger.method.cash' | t }}</option>
+                <option value="other">{{ 'ledger.method.other' | t }}</option>
+              </select>
+            </label>
+            <label class="ledger-field">
+              <span class="ledger-field__label">{{ 'ledger.col.date' | t }}</span>
+              <input
+                class="field__input"
+                type="datetime-local"
+                [value]="payDate()"
+                (input)="payDate.set($any($event.target).value)"
+              />
+            </label>
+            <label class="ledger-field">
+              <span class="ledger-field__label">{{ 'ledger.col.reference' | t }}</span>
+              <input class="field__input" type="text" [value]="payReference()" (input)="payReference.set($any($event.target).value)" />
+            </label>
+            <label class="ledger-field ledger-field--wide">
+              <span class="ledger-field__label">{{ 'ledger.col.note' | t }}</span>
+              <input class="field__input" type="text" [value]="payNote()" (input)="payNote.set($any($event.target).value)" />
+            </label>
+          </div>
+          <div class="ledger-pay-card__actions">
+            <button type="button" class="btn btn--primary" (click)="submitPayCard()" [disabled]="payBusy()">
+              {{ (editingPaymentId() ? 'ledger.savePaymentUpdate' : 'ledger.savePayment') | t }}
+            </button>
+            @if (editingPaymentId()) {
+              <button type="button" class="btn btn--secondary" (click)="cancelEditPayment()" [disabled]="payBusy()">
+                {{ 'ledger.cancelEdit' | t }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      <div class="ledger-table-wrap">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>{{ 'ledger.col.date' | t }}</th>
+              <th>{{ 'ledger.col.description' | t }}</th>
+              <th class="ledger-table__num">{{ 'ledger.col.debit' | t }}</th>
+              <th class="ledger-table__num">{{ 'ledger.col.credit' | t }}</th>
+              <th class="ledger-table__num">{{ 'ledger.col.balance' | t }}</th>
+              @if (isSuperAdmin()) {
+                <th class="ledger-table__actions">{{ 'ledger.col.actions' | t }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @if (loading()) {
+              <tr>
+                <td [attr.colspan]="tableColspan()" class="ledger-table__empty">{{ 'common.loading' | t }}</td>
+              </tr>
+            } @else if (movements().length === 0) {
+              <tr>
+                <td [attr.colspan]="tableColspan()" class="ledger-table__empty">{{ 'table.empty' | t }}</td>
+              </tr>
+            } @else {
+              @for (row of movements(); track row.id) {
+                <tr>
+                  <td class="ledger-table__date">{{ row.movementAt.replace(' ', ' · ') }}</td>
+                  <td>
+                    <div class="ledger-desc">{{ row.description }}</div>
+                    <div class="ledger-desc-meta">
+                      <span class="ledger-kind">{{ kindLabelKey(row.kind) | t }}</span>
+                      @if (row.invoiceId) {
+                        <span>· </span>
+                        @if (invoiceRowLinkable(row.kind)) {
+                          <a
+                            class="ledger-invoice-link"
+                            [routerLink]="['/invoices']"
+                            [queryParams]="{ invoice: row.invoiceId }"
+                            [attr.title]="'ledger.openInvoice' | t"
+                          >
+                            {{ row.invoiceId }}
+                          </a>
+                        } @else {
+                          <span>{{ row.invoiceId }}</span>
+                        }
+                      }
+                    </div>
+                  </td>
+                  <td class="ledger-table__num">{{ row.debit > 0 ? (row.debit | number: '1.2-2') : '—' }}</td>
+                  <td class="ledger-table__num">{{ row.credit > 0 ? (row.credit | number: '1.2-2') : '—' }}</td>
+                  <td class="ledger-table__num ledger-table__balance">{{ row.balance | number: '1.2-2' }}</td>
+                  @if (isSuperAdmin()) {
+                    <td class="ledger-table__actions">
+                      @if (canEditPayment(row)) {
+                        <button
+                          type="button"
+                          class="btn btn--secondary ledger-btn-compact"
+                          (click)="startEditPayment(row)"
+                          [disabled]="payBusy()"
+                        >
+                          {{ 'ledger.editPaymentRow' | t }}
+                        </button>
+                      }
+                    </td>
+                  }
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</div>

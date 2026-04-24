@@ -35,6 +35,7 @@ if (($orderRow['status'] ?? '') === 'cancelled') {
 
 $orderId = (int) $orderRow['id'];
 $dealerId = (int) $orderRow['dealer_id'];
+$invoiceDateYmd = date('Y-m-d', strtotime((string) ($orderRow['orderCreatedAt'] ?? 'today')));
 
 $dupStmt = $pdo->prepare(
     "SELECT external_id FROM b2b_invoices WHERE order_id = :oid AND status IN ('pending','approved') LIMIT 1",
@@ -61,6 +62,15 @@ if ($orderItems === []) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Siparişte kalem yok; fatura oluşturulamaz.'], 400);
 }
 
+$minItemStmt = $pdo->prepare('SELECT MIN(created_at) AS mt FROM b2b_order_items WHERE order_id = :oid');
+$minItemStmt->execute([':oid' => $orderId]);
+$minItemAt = $minItemStmt->fetchColumn();
+if ($minItemAt !== false && $minItemAt !== null && $minItemAt !== '') {
+    $invoiceDateTime = date('Y-m-d H:i:s', strtotime((string) $minItemAt));
+} else {
+    $invoiceDateTime = date('Y-m-d H:i:s');
+}
+
 try {
     $pdo->beginTransaction();
 
@@ -71,7 +81,7 @@ try {
 
     $insInv = $pdo->prepare(
         'INSERT INTO b2b_invoices (external_id, order_id, dealer_id, status, total, vat_total, total_inc_vat, tray_count, invoice_date)
-         VALUES (:eid, :oid, :did, \'pending\', :t, :vt, :tic, :tc, CURDATE())',
+         VALUES (:eid, :oid, :did, \'pending\', :t, :vt, :tic, :tc, :invdate)',
     );
     $insInv->execute([
         ':eid' => $externalId,
@@ -81,6 +91,7 @@ try {
         ':vt' => round((float) ($orderRow['vatTotal'] ?? 0), 2),
         ':tic' => round((float) ($orderRow['totalIncVat'] ?? 0), 2),
         ':tc' => (int) ($orderRow['trayCount'] ?? 0),
+        ':invdate' => $invoiceDateTime,
     ]);
     $invoiceId = (int) $pdo->lastInsertId();
 

@@ -41,6 +41,15 @@ export const routes: Routes = [
         data: { permissions: [Permission.ordersView] },
       },
       {
+        path: 'account-ledger',
+        loadComponent: () =>
+          import('./features/account-ledger/account-ledger-page.component').then(
+            (m) => m.AccountLedgerPageComponent,
+          ),
+        canActivate: [permissionGuard],
+        data: { permissions: [Permission.ledgerView] },
+      },
+      {
         path: 'deposits',
         loadComponent: () => import('./features/deposits').then((m) => m.DepositsPageComponent),
         canActivate: [permissionGuard],

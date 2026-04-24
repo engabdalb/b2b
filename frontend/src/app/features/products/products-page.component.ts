@@ -55,7 +55,7 @@ export class ProductsPageComponent implements OnInit {
   ngOnInit(): void {
     this.unitsData.load();
     this.data.loadPackagingTypes();
-    this.data.load();
+    this.data.load(null).subscribe();
   }
 
   openNew(): void {

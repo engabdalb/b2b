@@ -35,6 +35,11 @@ export interface OrdersXlsxColumnLabels {
   simpleQty: string;
   /** Bayi başlıklı defter görünümü (kağıt sipariş defteri benzeri) */
   sheetOrderBook: string;
+  /** Ürün + birim bazında sade toplam miktar (tek sayfa) */
+  sheetProductTotals: string;
+  productTotalsProduct: string;
+  productTotalsUnit: string;
+  productTotalsTotalQty: string;
 }
 
 export interface OrdersXlsxContext {
@@ -49,18 +54,25 @@ function truncateSheetName(name: string): string {
   return name.slice(0, 31);
 }
 
-/** Bayi → ürün+birim anahtarına göre adet toplama (aynı bayide çok sipariş birleşir). */
+type OrderBookLine = { productName: string; sku: string; unitLabel: string; qty: number };
+
+/** Bayi → ürün+birim anahtarına göre adet toplama (aynı bayide çok sipariş birleşir) + açıklama notları. */
 function aggregateOrderBookRows(
   orders: OrderDto[],
   unitLabel: (line: OrderLineDto) => string,
-): Map<string, { productName: string; sku: string; unitLabel: string; qty: number }[]> {
-  const byDealer = new Map<
-    string,
-    Map<string, { productName: string; sku: string; unitLabel: string; qty: number }>
-  >();
+): Map<string, { lines: OrderBookLine[]; orderNote: string }> {
+  const byDealer = new Map<string, Map<string, OrderBookLine>>();
+  const notesByDealer = new Map<string, Set<string>>();
 
   for (const o of orders) {
     const dealer = o.dealerName;
+    const t = (o.description ?? '').trim();
+    if (t) {
+      if (!notesByDealer.has(dealer)) {
+        notesByDealer.set(dealer, new Set());
+      }
+      notesByDealer.get(dealer)!.add(t);
+    }
     if (!byDealer.has(dealer)) {
       byDealer.set(dealer, new Map());
     }
@@ -69,30 +81,32 @@ function aggregateOrderBookRows(
       const key = `${ln.productId}\t${(ln.unitCode ?? '').trim()}`;
       const ul = unitLabel(ln);
       const prev = m.get(key);
-      const qty = (prev?.qty ?? 0) + ln.quantity;
+      const q = (prev?.qty ?? 0) + ln.quantity;
       m.set(key, {
         productName: ln.name,
         sku: ln.sku,
         unitLabel: ul,
-        qty,
+        qty: q,
       });
     }
   }
 
-  const sorted = new Map<string, { productName: string; sku: string; unitLabel: string; qty: number }[]>();
+  const sorted = new Map<string, { lines: OrderBookLine[]; orderNote: string }>();
   const dealerNames = [...byDealer.keys()].sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' }));
   for (const d of dealerNames) {
-    const rows = [...byDealer.get(d)!.values()].sort((a, b) =>
+    const lines = [...byDealer.get(d)!.values()].sort((a, b) =>
       a.productName.localeCompare(b.productName, 'tr', { sensitivity: 'base' }),
     );
-    sorted.set(d, rows);
+    const set = notesByDealer.get(d);
+    const orderNote = set ? [...set].sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' })).join(' · ') : '';
+    sorted.set(d, { lines, orderNote });
   }
   return sorted;
 }
 
 /**
- * Şube defteri: satır 1’de her şube 3 sütunluk blokta (A1/D1/G1… şube adı),
- * alt satırlarda ürün | miktar | birim. İkinci şube D1’de (B1 ilk bloğun miktar sütunudur).
+ * Şube defteri: 1. satırda (A1:C1, D1:F1, …) birleşik bayi adı; 2. satırda aynı bloklarda birleşik açıklama;
+ * altta ürün | miktar | birim.
  */
 function buildOrderBookHorizontalAoa(
   orders: OrderDto[],
@@ -103,7 +117,7 @@ function buildOrderBookHorizontalAoa(
   if (dealers.length === 0) {
     return [['']];
   }
-  const maxLen = Math.max(0, ...dealers.map((d) => byDealer.get(d)!.length));
+  const maxLen = Math.max(0, ...dealers.map((d) => byDealer.get(d)!.lines.length));
   const colsPerDealer = 3;
   const totalCols = dealers.length * colsPerDealer;
   const rows: (string | number)[][] = [];
@@ -114,10 +128,18 @@ function buildOrderBookHorizontalAoa(
   }
   rows.push(headerRow);
 
+  /** Açıklama: her bayi bloğunda başlıkla aynı şekilde ilk sütunda; birleştirme satır 2’de A:C, D:F… (Excel’de 2. satır). */
+  const descRow: (string | number)[] = Array(totalCols).fill('');
+  for (let d = 0; d < dealers.length; d++) {
+    const note = (byDealer.get(dealers[d])!.orderNote ?? '').trim();
+    descRow[d * colsPerDealer] = note;
+  }
+  rows.push(descRow);
+
   for (let r = 0; r < maxLen; r++) {
     const row: (string | number)[] = Array(totalCols).fill('');
     for (let d = 0; d < dealers.length; d++) {
-      const lines = byDealer.get(dealers[d])!;
+      const { lines } = byDealer.get(dealers[d])!;
       const line = lines[r];
       if (line) {
         row[d * colsPerDealer] = line.productName;
@@ -128,6 +150,34 @@ function buildOrderBookHorizontalAoa(
     rows.push(row);
   }
   return rows;
+}
+
+/** Tüm dışa aktarılan siparişler: ürün + birim → toplam miktar. */
+function aggregateAllProductUnitTotals(
+  orders: OrderDto[],
+  unitLabel: (line: OrderLineDto) => string,
+): { productName: string; sku: string; unitLabel: string; totalQty: number }[] {
+  const map = new Map<string, { productName: string; sku: string; unitLabel: string; totalQty: number }>();
+  for (const o of orders) {
+    for (const ln of o.lines) {
+      const key = `${ln.productId}\t${(ln.unitCode ?? '').trim()}`;
+      const ul = unitLabel(ln);
+      const prev = map.get(key);
+      const q = (prev?.totalQty ?? 0) + ln.quantity;
+      if (prev) {
+        prev.totalQty = q;
+      } else {
+        map.set(key, { productName: ln.name, sku: ln.sku, unitLabel: ul, totalQty: q });
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) => {
+    const c1 = a.productName.localeCompare(b.productName, 'tr', { sensitivity: 'base' });
+    if (c1 !== 0) {
+      return c1;
+    }
+    return a.unitLabel.localeCompare(b.unitLabel, 'tr', { sensitivity: 'base' });
+  });
 }
 
 /** Filtre özeti + sipariş özeti + kalem detayı + sade liste + bayi bloklu defter sayfası. */
@@ -218,11 +268,12 @@ export function downloadOrdersXlsx(orders: OrderDto[], ctx: OrdersXlsxContext, f
   const ws3 = XLSX.utils.aoa_to_sheet(lineAoa);
   XLSX.utils.book_append_sheet(wb, ws3, truncateSheetName(L.sheetLines));
 
-  const simpleHeader = [L.date, L.dealer, L.product, L.unit, L.simpleQty];
+  const simpleHeader = [L.date, L.dealer, L.product, L.unit, L.simpleQty, L.orderDescription];
   const simpleAoa: (string | number)[][] = [simpleHeader];
   for (const o of orders) {
+    const orderDesc = (o.description ?? '').trim() || '';
     for (const ln of o.lines) {
-      simpleAoa.push([o.createdAt, o.dealerName, ln.name, ctx.unitLabel(ln), ln.quantity]);
+      simpleAoa.push([o.createdAt, o.dealerName, ln.name, ctx.unitLabel(ln), ln.quantity, orderDesc]);
     }
   }
   const ws4 = XLSX.utils.aoa_to_sheet(simpleAoa);
@@ -235,10 +286,19 @@ export function downloadOrdersXlsx(orders: OrderDto[], ctx: OrdersXlsxContext, f
     const merges: { s: { r: number; c: number }; e: { r: number; c: number } }[] = [];
     for (let d = 0; d < blocks; d++) {
       merges.push({ s: { r: 0, c: d * 3 }, e: { r: 0, c: d * 3 + 2 } });
+      merges.push({ s: { r: 1, c: d * 3 }, e: { r: 1, c: d * 3 + 2 } });
     }
     ws5['!merges'] = merges;
   }
   XLSX.utils.book_append_sheet(wb, ws5, truncateSheetName(L.sheetOrderBook));
+
+  const totals = aggregateAllProductUnitTotals(orders, ctx.unitLabel);
+  const totalsAoa: (string | number)[][] = [
+    [L.productTotalsProduct, L.productTotalsUnit, L.productTotalsTotalQty],
+    ...totals.map((r) => [r.productName, r.unitLabel, r.totalQty]),
+  ];
+  const ws6 = XLSX.utils.aoa_to_sheet(totalsAoa);
+  XLSX.utils.book_append_sheet(wb, ws6, truncateSheetName(L.sheetProductTotals));
 
   XLSX.writeFile(wb, filename);
 }

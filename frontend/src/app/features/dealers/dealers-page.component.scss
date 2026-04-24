@@ -166,3 +166,95 @@
   color: var(--danger);
   font-size: 0.88rem;
 }
+
+.dealers-form-modal .modal-panel__body {
+  max-height: min(85vh, 48rem);
+  overflow-y: auto;
+}
+
+.dealers-unit-discounts {
+  margin: 1rem 0 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.dealers-unit-discounts__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.dealers-unit-discounts__hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.dealers-unit-discounts__loading {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+}
+
+.dealers-unit-discounts__scroll {
+  max-height: 14rem;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.dealers-unit-discounts__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dealers-unit-discounts__row:last-child {
+  border-bottom: none;
+}
+
+.dealers-unit-discounts__label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  font-size: 0.86rem;
+}
+
+.dealers-unit-discounts__code {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.dealers-unit-discounts__name {
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.dealers-unit-discounts__field {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.dealers-unit-discounts__input {
+  width: 5.5rem;
+  min-width: 4.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.dealers-unit-discounts__suffix {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}

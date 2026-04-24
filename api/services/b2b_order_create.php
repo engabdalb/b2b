@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/helper/b2b_auth.php';
 require_once __DIR__ . '/helper/b2b_returnable_packaging.php';
+require_once __DIR__ . '/helper/b2b_dealer_unit_discounts.php';
 require_method('POST');
 
 global $pdo;
@@ -64,12 +65,12 @@ foreach ($linesRaw as $idx => $row) {
     if ($qty <= 0) {
         json_response(['ok' => false, 'error' => 'validation', 'message' => 'Adet sıfırdan büyük olmalı.'], 400);
     }
-    $discount = isset($row['discount_amount']) && is_numeric($row['discount_amount'])
+    $clientDiscount = isset($row['discount_amount']) && is_numeric($row['discount_amount'])
         ? round((float) $row['discount_amount'], 2)
         : (isset($row['discountAmount']) && is_numeric($row['discountAmount'])
             ? round((float) $row['discountAmount'], 2)
-            : 0.0);
-    if ($discount < 0) {
+            : null);
+    if ($clientDiscount !== null && $clientDiscount < 0) {
         json_response(['ok' => false, 'error' => 'validation', 'message' => 'İndirim negatif olamaz.'], 400);
     }
     $vatRate = null;
@@ -91,13 +92,14 @@ foreach ($linesRaw as $idx => $row) {
     $normalized[] = [
         'product_id' => $pid,
         'quantity' => $qty,
-        'discount_amount' => $discount,
+        'client_discount' => $clientDiscount,
         'vat_rate' => $vatRate,
         'sort_order' => count($normalized) + 1,
     ];
 }
 
-$productStmt = $pdo->prepare('SELECT id, sku, name, price FROM b2b_products WHERE id = :id LIMIT 1');
+$productStmt = $pdo->prepare('SELECT id, sku, name, price, unit_id AS unitId FROM b2b_products WHERE id = :id LIMIT 1');
+$unitDiscountMap = b2b_dealer_unit_discount_map($pdo, $dealerId);
 
 try {
     $pdo->beginTransaction();
@@ -132,7 +134,25 @@ try {
             json_response(['ok' => false, 'error' => 'validation', 'message' => 'Bilinmeyen ürün: ' . $line['product_id']], 400);
         }
         $unitPrice = round((float) $p['price'], 2);
-        $lineTotal = round($line['quantity'] * $unitPrice - $line['discount_amount'], 2);
+        $uid = (int) $p['unitId'];
+        $dpu = $unitDiscountMap[$uid] ?? 0.0;
+        $maxLineDiscount = round($line['quantity'] * $unitPrice, 2);
+        $rawRule = round($dpu * $line['quantity'], 2);
+        $ruleDiscount = min($rawRule, $maxLineDiscount);
+        if ($auth['role'] === 'dealer') {
+            $lineDiscount = $ruleDiscount;
+        } else {
+            if ($line['client_discount'] !== null) {
+                $lineDiscount = min((float) $line['client_discount'], $maxLineDiscount);
+            } else {
+                $lineDiscount = $ruleDiscount;
+            }
+        }
+        if ($lineDiscount < 0) {
+            $lineDiscount = 0.0;
+        }
+
+        $lineTotal = round($line['quantity'] * $unitPrice - $lineDiscount, 2);
         if ($lineTotal < 0) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'validation', 'message' => 'Satır tutarı negatif olamaz (indirim çok yüksek).'], 400);
@@ -154,7 +174,7 @@ try {
             ':vr' => $line['vat_rate'],
             ':va' => $vatAmount,
             ':lti' => $lineTotalIncVat,
-            ':disc' => $line['discount_amount'],
+            ':disc' => $lineDiscount,
             ':so' => $line['sort_order'],
         ]);
 
@@ -232,6 +252,7 @@ json_response([
     'ok' => true,
     'item' => [
         'id' => $externalId,
+        'dealerId' => (string) $dealerId,
         'dealerName' => $dealerName,
         'status' => (string) ($meta['status'] ?? 'pending'),
         'total' => (float) ($meta['total'] ?? 0),

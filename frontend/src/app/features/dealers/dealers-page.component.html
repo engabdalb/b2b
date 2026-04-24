@@ -52,7 +52,7 @@
 
 @if (dealerFormOpen()) {
   <div class="modal-backdrop" role="presentation" (click)="closeDealerForm()"></div>
-  <div class="modal-panel" role="dialog" aria-modal="true">
+  <div class="modal-panel modal-panel--wide dealers-form-modal" role="dialog" aria-modal="true">
     <div class="modal-panel__head">
       <h2 class="modal-panel__title">
         {{ (dealerForm.value.id ? 'dealers.formTitleEdit' : 'dealers.formTitleNew') | t }}
@@ -111,6 +111,37 @@
       </label>
 
       <input type="hidden" formControlName="id" />
+
+      <div class="dealers-unit-discounts">
+        <h3 class="dealers-unit-discounts__title">{{ 'dealers.unitDiscountsSection' | t }}</h3>
+        <p class="dealers-unit-discounts__hint">{{ 'dealers.unitDiscountsHint' | t }}</p>
+        @if (unitDiscountsLoading()) {
+          <p class="dealers-unit-discounts__loading">{{ 'dealers.unitDiscountsLoading' | t }}</p>
+        } @else {
+          <div class="dealers-unit-discounts__scroll">
+            @for (u of unitsSorted(); track u.id) {
+              <div class="dealers-unit-discounts__row">
+                <span class="dealers-unit-discounts__label">
+                  <span class="dealers-unit-discounts__code">{{ u.code }}</span>
+                  <span class="dealers-unit-discounts__name">{{ { unitCode: u.code, name: u.name } | unitName }}</span>
+                </span>
+                <label class="dealers-unit-discounts__field">
+                  <input
+                    class="field__input dealers-unit-discounts__input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    [attr.aria-label]="('dealers.discountPerUnitShort' | t) + ' — ' + u.code"
+                    [value]="unitDiscountValue(u.id)"
+                    (input)="setUnitDiscount(u.id, +$any($event.target).value)"
+                  />
+                  <span class="dealers-unit-discounts__suffix" aria-hidden="true">₺</span>
+                </label>
+              </div>
+            }
+          </div>
+        }
+      </div>
 
       <div class="modal-panel__footer">
         <button type="button" class="btn btn--secondary" (click)="closeDealerForm()" [disabled]="dealerSaving()">

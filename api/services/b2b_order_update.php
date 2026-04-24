@@ -229,6 +229,7 @@ json_response([
     'ok' => true,
     'item' => [
         'id' => (string) ($meta['id'] ?? $orderRef),
+        'dealerId' => (string) $dealerId,
         'dealerName' => $dealerName,
         'status' => (string) ($meta['status'] ?? $status),
         'total' => (float) ($meta['total'] ?? 0),

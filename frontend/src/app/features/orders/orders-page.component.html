@@ -222,7 +222,14 @@
                 <span class="orders-product-card__unit">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }}</span>
                 <span class="orders-product-card__name">{{ p.name }}</span>
                 <span class="orders-product-card__meta">{{ p.sku }}</span>
-                <span class="orders-product-card__price">{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+                @if (p.dealerDiscountPerUnit != null && p.dealerDiscountPerUnit > 0) {
+                  <span class="orders-product-card__price-block">
+                    <span class="orders-product-card__price-old">{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+                    <span class="orders-product-card__price">{{ (p.effectiveUnitPrice ?? p.price) | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+                  </span>
+                } @else {
+                  <span class="orders-product-card__price">{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</span>
+                }
                 <span class="orders-product-card__add">{{ 'orders.addToCart' | t }}</span>
               </button>
             </li>
@@ -298,6 +305,18 @@
                       step="1"
                       formControlName="vatRate"
                       [attr.placeholder]="'orders.vatOptionalPlaceholder' | t"
+                    />
+                  </label>
+                  <label class="orders-create-line__disc-label">
+                    <span class="orders-create-line__disc-hint">{{ 'orders.line.discount' | t }}</span>
+                    <input
+                      class="field__input orders-create-line__disc"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      formControlName="discountAmount"
+                      [readonly]="!isSuperAdmin()"
+                      [attr.aria-label]="'orders.line.discount' | t"
                     />
                   </label>
                 </div>
@@ -402,6 +421,7 @@
               <th>{{ 'orders.line.unit' | t }}</th>
               <th class="orders-lines__num">{{ 'orders.line.qty' | t }}</th>
               <th class="orders-lines__num">{{ 'orders.line.unitPrice' | t }}</th>
+              <th class="orders-lines__num">{{ 'orders.line.discount' | t }}</th>
               <th class="orders-lines__num">{{ 'orders.line.lineTotal' | t }}</th>
               <th class="orders-lines__num">{{ 'orders.line.vat' | t }}</th>
               <th class="orders-lines__num">{{ 'orders.line.vatAmount' | t }}</th>
@@ -416,6 +436,13 @@
                 <td>{{ { code: line.unitCode ?? '', name: line.unit } | unitName }}</td>
                 <td class="orders-lines__num">{{ line.quantity | number: '1.0-3' : i18n.numberLocale() }}</td>
                 <td class="orders-lines__num">{{ line.unitPrice | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+                <td class="orders-lines__num">
+                  @if (line.discountAmount > 0) {
+                    {{ line.discountAmount | number: '1.2-2' : i18n.numberLocale() }} ₺
+                  } @else {
+                    —
+                  }
+                </td>
                 <td class="orders-lines__num">{{ line.lineTotal | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
                 <td class="orders-lines__num">
                   @if (line.vatRate != null) {

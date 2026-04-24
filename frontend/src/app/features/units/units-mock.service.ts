@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Observable, of, tap } from 'rxjs';
+import { Observable, of, tap, catchError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { UnitDto } from '../../core/models/api.types';
 import { ApiService } from '../../core/services/api.service';
@@ -26,15 +26,18 @@ export class UnitsMockService {
     return !!environment.apiUrl?.trim();
   }
 
-  load(): void {
+  load(): Observable<UnitsApiResponse> {
     if (!this.hasApi()) {
       this.units.set([]);
-      return;
+      return of({ ok: true, items: [] });
     }
-    this.api.get<UnitsApiResponse>('b2b_units_get').subscribe({
-      next: (r) => this.units.set(r.items ?? []),
-      error: () => this.units.set([]),
-    });
+    return this.api.get<UnitsApiResponse>('b2b_units_get').pipe(
+      tap((r) => this.units.set(r.items ?? [])),
+      catchError(() => {
+        this.units.set([]);
+        return of({ ok: false, items: [] });
+      }),
+    );
   }
 
   create(payload: { code: string; name: string; sort_order?: number }): Observable<UnitMutationResponse> {
@@ -44,7 +47,7 @@ export class UnitsMockService {
     return this.api.post<UnitMutationResponse>('b2b_units_add', payload).pipe(
       tap((r) => {
         if (r.ok) {
-          this.load();
+          this.load().subscribe();
         }
       }),
     );

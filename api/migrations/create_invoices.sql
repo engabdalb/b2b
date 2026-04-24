@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS b2b_invoices (
   vat_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   total_inc_vat DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   tray_count INT NOT NULL DEFAULT 0,
-  invoice_date DATE NOT NULL,
+  invoice_date DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_b2b_inv_order FOREIGN KEY (order_id) REFERENCES b2b_orders (id) ON DELETE RESTRICT,
   CONSTRAINT fk_b2b_inv_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE RESTRICT,

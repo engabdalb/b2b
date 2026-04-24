@@ -58,16 +58,69 @@ if ($statusRaw === 'approved') {
     $upd = $pdo->prepare("UPDATE b2b_invoices SET status = 'cancelled' WHERE id = :id AND status IN ('pending','approved')");
 }
 
-$upd->execute([':id' => (int) $row['internalId']]);
-if ($upd->rowCount() === 0) {
-    json_response(['ok' => false, 'error' => 'conflict', 'message' => 'Durum güncellenemedi.'], 409);
+$internalId = (int) $row['internalId'];
+$invoiceDateRaw = (string) $row['invoiceDate'];
+$tsInv = strtotime($invoiceDateRaw);
+$movementAtInvoice = $tsInv !== false ? date('Y-m-d H:i:s', $tsInv) : date('Y-m-d H:i:s');
+$totalIncVat = (float) ($row['totalIncVat'] ?? 0);
+$externalId = (string) $row['id'];
+$dealerId = (int) $row['dealer_id'];
+
+try {
+    $pdo->beginTransaction();
+    $upd->execute([':id' => $internalId]);
+    if ($upd->rowCount() === 0) {
+        $pdo->rollBack();
+        json_response(['ok' => false, 'error' => 'conflict', 'message' => 'Durum güncellenemedi.'], 409);
+    }
+
+    if ($statusRaw === 'approved') {
+        $dup = $pdo->prepare(
+            "SELECT id FROM b2b_account_movements WHERE invoice_id = :iid AND kind = 'invoice' LIMIT 1",
+        );
+        $dup->execute([':iid' => $internalId]);
+        if (!$dup->fetch()) {
+            $ledger = $pdo->prepare(
+                "INSERT INTO b2b_account_movements (dealer_id, movement_at, kind, invoice_id, payment_id, debit_try, credit_try, description)
+                 VALUES (:did, :mov, 'invoice', :iid, NULL, :deb, 0, :desc)",
+            );
+            $ledger->execute([
+                ':did' => $dealerId,
+                ':mov' => $movementAtInvoice,
+                ':iid' => $internalId,
+                ':deb' => round($totalIncVat, 2),
+                ':desc' => 'Fatura ' . $externalId,
+            ]);
+        }
+    } elseif ($statusRaw === 'cancelled' && $current === 'approved') {
+        $rev = $pdo->prepare(
+            "INSERT INTO b2b_account_movements (dealer_id, movement_at, kind, invoice_id, payment_id, debit_try, credit_try, description)
+             VALUES (:did, NOW(), 'invoice_cancel', :iid, NULL, 0, :cred, :desc)",
+        );
+        $rev->execute([
+            ':did' => $dealerId,
+            ':iid' => $internalId,
+            ':cred' => round($totalIncVat, 2),
+            ':desc' => 'Fatura iptali ' . $externalId,
+        ]);
+    }
+
+    $pdo->commit();
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    if (str_contains($e->getMessage(), 'b2b_account_movements') || str_contains($e->getMessage(), 'Unknown table')) {
+        json_response(['ok' => false, 'error' => 'schema', 'message' => 'Cari tabloları eksik. migrations/b2b_account_movements.sql çalıştırın.'], 500);
+    }
+    json_response(['ok' => false, 'error' => 'server', 'message' => $e->getMessage()], 500);
 }
 
 $dealerNameStmt = $pdo->prepare('SELECT name FROM b2b_dealers WHERE id = :id LIMIT 1');
 $dealerNameStmt->execute([':id' => (int) $row['dealer_id']]);
 $dealerName = (string) $dealerNameStmt->fetchColumn();
 
-$invoiceId = (int) $row['internalId'];
+$invoiceId = $internalId;
 $lineFetch = $pdo->prepare(
     "SELECT i.id, i.product_id AS productId, p.sku, p.name, u.code AS unitCode, u.name AS unit, i.quantity, i.unit_price AS unitPrice,
             i.line_total AS lineTotal, i.vat_rate AS vatRate, i.vat_amount AS vatAmount, i.line_total_inc_vat AS lineTotalIncVat,

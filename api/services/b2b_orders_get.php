@@ -18,7 +18,7 @@ $ymd = static function (string $s): ?string {
     return $dt instanceof \DateTimeImmutable && $dt->format('Y-m-d') === $s ? $s : null;
 };
 
-$sql = 'SELECT o.id AS internalId, o.external_id AS id, d.name AS dealerName, o.status, o.total,
+$sql = 'SELECT o.id AS internalId, o.external_id AS id, o.dealer_id AS dealerId, d.name AS dealerName, o.status, o.total,
                o.vat_total AS vatTotal, o.total_inc_vat AS totalIncVat, o.created_at AS createdAt,
                o.description AS description,
                (SELECT i2.external_id FROM b2b_invoices i2
@@ -128,6 +128,7 @@ $items = array_map(static function (array $r) use ($linesByOrder): array {
     $desc = $r['description'] ?? null;
     return [
         'id' => (string) $r['id'],
+        'dealerId' => (string) $r['dealerId'],
         'dealerName' => (string) $r['dealerName'],
         'status' => (string) $r['status'],
         'total' => (float) $r['total'],

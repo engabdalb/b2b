@@ -49,6 +49,7 @@ interface NewOrderLineFormValue {
   productId: string;
   quantity: number;
   vatRate: number | null;
+  discountAmount: number;
 }
 
 interface NewOrderFormRawValue {
@@ -150,7 +151,16 @@ export class OrdersPageComponent implements OnInit {
         return { lineTotal: null as number | null, vatAmount: null as number | null };
       }
       const unitPrice = Math.round(p.price * 100) / 100;
-      const lineTotal = Math.round(l.quantity * unitPrice * 100) / 100;
+      const dpu = Math.round((p.dealerDiscountPerUnit ?? 0) * 100) / 100;
+      const maxDisc = Math.round(l.quantity * unitPrice * 100) / 100;
+      const ruleDisc = Math.min(Math.round(dpu * l.quantity * 100) / 100, maxDisc);
+      const disc = this.isSuperAdmin()
+        ? Math.max(0, Math.min(Math.round(Number(l.discountAmount ?? 0) * 100) / 100, maxDisc))
+        : ruleDisc;
+      const lineTotal = Math.round((l.quantity * unitPrice - disc) * 100) / 100;
+      if (lineTotal < 0) {
+        return { lineTotal: null as number | null, vatAmount: null as number | null };
+      }
       subtotal += lineTotal;
 
       const vr = this.parseOptionalVatRate(l.vatRate);
@@ -230,9 +240,23 @@ export class OrdersPageComponent implements OnInit {
 
   ngOnInit(): void {
     this.ordersData.load();
-    this.productsData.load();
+    if (!this.isSuperAdmin()) {
+      this.productsData.load(this.auth.user().dealerId ?? null).subscribe();
+    }
     if (this.needsDealerFilter()) {
       this.dealersData.load();
+    }
+    if (this.isSuperAdmin()) {
+      this.newOrderForm.controls.dealerId.valueChanges
+        .pipe(startWith(this.newOrderForm.controls.dealerId.value))
+        .subscribe((dealer) => {
+          const id = String(dealer ?? '').trim() || null;
+          this.productsData.load(id).subscribe(() => {
+            if (this.ordersViewTab() === 'create') {
+              this.syncDealerLineDiscounts();
+            }
+          });
+        });
     }
   }
 
@@ -261,8 +285,9 @@ export class OrdersPageComponent implements OnInit {
     return this.fb.nonNullable.group({
       productId: ['', Validators.required],
       quantity: [1, [cartLineIntegerQtyValidator]],
-      /** Varsayılan %10; boşaltılırsa API’de vat_rate gönderilmez (null). */
-      vatRate: this.fb.control<number | null>(10),
+      /** Varsayılan %1; boşaltılırsa API’de vat_rate gönderilmez (null). */
+      vatRate: this.fb.control<number | null>(1),
+      discountAmount: this.fb.control(0, { nonNullable: true, validators: [Validators.min(0)] }),
     });
   }
 
@@ -271,7 +296,7 @@ export class OrdersPageComponent implements OnInit {
       productId: [line?.productId ?? '', Validators.required],
       quantity: [line?.quantity ?? 1, [Validators.required, Validators.min(0.001)]],
       vatRate: this.fb.control<number | null>(
-        line ? (line.vatRate ?? null) : 10,
+        line ? (line.vatRate ?? null) : 1,
       ),
       discountAmount: [line?.discountAmount ?? 0, [Validators.required, Validators.min(0)]],
     });
@@ -293,6 +318,36 @@ export class OrdersPageComponent implements OnInit {
     return r;
   }
 
+  /** Bayi birim indirimine göre satır toplam indirimini doldurur */
+  private syncDealerLineDiscounts(): void {
+    const raw = this.newOrderForm.getRawValue() as NewOrderFormRawValue;
+    const did = this.isSuperAdmin()
+      ? String(raw.dealerId ?? '').trim()
+      : String(this.auth.user().dealerId ?? '').trim();
+    if (this.isSuperAdmin() && !did) {
+      this.lineControls.controls.forEach((g) => {
+        g.get('discountAmount')?.patchValue(0, { emitEvent: false });
+      });
+      return;
+    }
+    const products = this.productsData.products();
+    const byId = new Map(products.map((p) => [p.id, p]));
+    this.lineControls.controls.forEach((g) => {
+      const pid = String(g.get('productId')?.value ?? '').trim();
+      const qty = Math.max(1, Math.floor(Number(g.get('quantity')?.value) || 1));
+      const p = pid ? byId.get(pid) : undefined;
+      if (!p) {
+        g.get('discountAmount')?.patchValue(0, { emitEvent: false });
+        return;
+      }
+      const list = Math.round(p.price * 100) / 100;
+      const dpu = Math.round((p.dealerDiscountPerUnit ?? 0) * 100) / 100;
+      const maxDisc = Math.round(qty * list * 100) / 100;
+      const rule = Math.min(Math.round(dpu * qty * 100) / 100, maxDisc);
+      g.get('discountAmount')?.patchValue(rule, { emitEvent: false });
+    });
+  }
+
   get lineControls(): FormArray {
     return this.newOrderForm.controls.lines as FormArray;
   }
@@ -303,6 +358,7 @@ export class OrdersPageComponent implements OnInit {
 
   removeLine(index: number): void {
     this.lineControls.removeAt(index);
+    this.syncDealerLineDiscounts();
   }
 
   addEditLine(): void {
@@ -323,6 +379,7 @@ export class OrdersPageComponent implements OnInit {
       description: '',
     });
     this.lineControls.clear();
+    this.syncDealerLineDiscounts();
   }
 
   /** Üst başlıktaki “Yeni sipariş” ve alt sekme: sipariş oluştur görünümü */
@@ -334,6 +391,13 @@ export class OrdersPageComponent implements OnInit {
     this.createProductSearch.set('');
     this.createUnitFilter.set('all');
     this.ordersViewTab.set('create');
+    const after = () => this.syncDealerLineDiscounts();
+    if (this.isSuperAdmin()) {
+      const did = String(this.newOrderForm.controls.dealerId.value ?? '').trim() || null;
+      this.productsData.load(did).subscribe({ next: after });
+    } else {
+      this.productsData.load(this.auth.user().dealerId ?? null).subscribe({ next: after });
+    }
   }
 
   goToListTab(): void {
@@ -370,6 +434,7 @@ export class OrdersPageComponent implements OnInit {
       if (String(g.get('productId')?.value ?? '').trim() === pid) {
         const q = Number(g.get('quantity')?.value) || 0;
         g.get('quantity')?.setValue(Math.max(1, Math.floor(q) + 1));
+        this.syncDealerLineDiscounts();
         return;
       }
     }
@@ -380,12 +445,14 @@ export class OrdersPageComponent implements OnInit {
           productId: pid,
           quantity: Math.max(1, Math.floor(Number(g.get('quantity')?.value) || 1)),
         });
+        this.syncDealerLineDiscounts();
         return;
       }
     }
     const g = this.createLineGroup();
     g.patchValue({ productId: pid, quantity: 1 });
     arr.push(g);
+    this.syncDealerLineDiscounts();
   }
 
   adjustLineQty(index: number, delta: number): void {
@@ -397,6 +464,7 @@ export class OrdersPageComponent implements OnInit {
     const base = Math.floor(q);
     const next = base + delta;
     g.get('quantity')?.setValue(Math.max(1, next));
+    this.syncDealerLineDiscounts();
   }
 
   /** Sepet miktarı: yalnızca rakamlar; e/E/+-/ondalık ve harf engellenir. */
@@ -453,6 +521,7 @@ export class OrdersPageComponent implements OnInit {
     }
     c.setValue(q);
     (ev.target as HTMLInputElement).value = String(q);
+    this.syncDealerLineDiscounts();
   }
 
   onCartQtyBlur(index: number, ev: FocusEvent): void {
@@ -467,11 +536,13 @@ export class OrdersPageComponent implements OnInit {
     if (!Number.isFinite(n) || n < 1) {
       c.setValue(1);
       el.value = '1';
+      this.syncDealerLineDiscounts();
       return;
     }
     const q = Math.min(n, 1e9);
     c.setValue(q);
     el.value = String(q);
+    this.syncDealerLineDiscounts();
   }
 
   /** Miktar 1 iken azaltma (sipariş oluştur sepeti) */
@@ -501,6 +572,7 @@ export class OrdersPageComponent implements OnInit {
     }
     this.closeDetail();
     this.editFormError.set(null);
+    this.productsData.load(o.dealerId ?? null).subscribe();
     this.editingOrderId.set(o.id);
     this.editOrderMeta.set({ dealerName: o.dealerName, createdAt: o.createdAt });
     this.editOrderForm.controls.status.setValue(o.status);
@@ -522,6 +594,11 @@ export class OrdersPageComponent implements OnInit {
     this.editFormError.set(null);
     this.editingOrderId.set(null);
     this.editOrderMeta.set(null);
+    if (this.isSuperAdmin()) {
+      this.productsData.load(null).subscribe();
+    } else {
+      this.productsData.load(this.auth.user().dealerId ?? null).subscribe();
+    }
   }
 
   submitEdit(): void {
@@ -631,10 +708,17 @@ export class OrdersPageComponent implements OnInit {
           product_id: string;
           quantity: number;
           vat_rate?: number | null;
+          discount_amount?: number;
         } = {
           product_id: String(l.productId).trim(),
           quantity: Number(l.quantity),
         };
+        if (this.isSuperAdmin()) {
+          row.discount_amount = Math.max(
+            0,
+            Math.round(Number(l.discountAmount ?? 0) * 100) / 100,
+          );
+        }
         const vr = this.parseOptionalVatRate(l.vatRate);
         if (vr !== undefined) {
           row.vat_rate = vr;
@@ -769,6 +853,10 @@ export class OrdersPageComponent implements OnInit {
       discount: t('orders.line.discount'),
       simpleQty: t('orders.export.simpleQty'),
       sheetOrderBook: t('orders.export.sheetOrderBook'),
+      sheetProductTotals: t('orders.export.sheetProductTotals'),
+      productTotalsProduct: t('orders.export.productTotalsProduct'),
+      productTotalsUnit: t('orders.export.productTotalsUnit'),
+      productTotalsTotalQty: t('orders.export.productTotalsTotalQty'),
     };
   }
 

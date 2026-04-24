@@ -53,6 +53,18 @@ CREATE TABLE IF NOT EXISTS b2b_products (
   CONSTRAINT fk_b2b_product_returnable_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Bayi + birim türü (kg, tepsi, …): birim başına indirim (TRY). Ürün bu birimle satıldığında siparişte uygulanır.
+CREATE TABLE IF NOT EXISTS b2b_dealer_unit_discounts (
+  dealer_id INT NOT NULL,
+  unit_id INT NOT NULL,
+  discount_per_unit DECIMAL(12,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (dealer_id, unit_id),
+  CONSTRAINT fk_dud_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE CASCADE,
+  CONSTRAINT fk_dud_unit FOREIGN KEY (unit_id) REFERENCES b2b_units (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS b2b_orders (
   id INT AUTO_INCREMENT PRIMARY KEY,
   external_id VARCHAR(32) NOT NULL UNIQUE,
@@ -130,7 +142,7 @@ CREATE TABLE IF NOT EXISTS b2b_invoices (
   vat_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   total_inc_vat DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   tray_count INT NOT NULL DEFAULT 0,
-  invoice_date DATE NOT NULL,
+  invoice_date DATETIME NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_b2b_inv_order FOREIGN KEY (order_id) REFERENCES b2b_orders (id) ON DELETE RESTRICT,
   CONSTRAINT fk_b2b_inv_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE RESTRICT,
@@ -156,6 +168,38 @@ CREATE TABLE IF NOT EXISTS b2b_invoice_items (
   CONSTRAINT fk_bii_product FOREIGN KEY (product_id) REFERENCES b2b_products (id) ON DELETE RESTRICT,
   KEY idx_bii_invoice (invoice_id),
   UNIQUE KEY uk_bii_invoice_sort (invoice_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS b2b_payments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  dealer_id INT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  paid_at DATETIME NOT NULL,
+  method ENUM('bank_transfer','credit_card','check','cash','other') NOT NULL DEFAULT 'bank_transfer',
+  reference VARCHAR(128) NOT NULL DEFAULT '',
+  note VARCHAR(500) NULL DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_bp_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE RESTRICT,
+  KEY idx_bp_dealer_paid (dealer_id, paid_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS b2b_account_movements (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  dealer_id INT NOT NULL,
+  movement_at DATETIME NOT NULL,
+  kind ENUM('invoice','payment','invoice_cancel','adjustment') NOT NULL,
+  invoice_id INT NULL DEFAULT NULL,
+  payment_id INT NULL DEFAULT NULL,
+  debit_try DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  credit_try DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  description VARCHAR(512) NOT NULL DEFAULT '',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_bam_dealer FOREIGN KEY (dealer_id) REFERENCES b2b_dealers (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_bam_invoice FOREIGN KEY (invoice_id) REFERENCES b2b_invoices (id) ON DELETE RESTRICT,
+  CONSTRAINT fk_bam_payment FOREIGN KEY (payment_id) REFERENCES b2b_payments (id) ON DELETE RESTRICT,
+  KEY idx_bam_dealer_time (dealer_id, movement_at, id),
+  KEY idx_bam_invoice (invoice_id),
+  KEY idx_bam_payment (payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO b2b_dealers (id, name, region, il, ilce, konum, telefon, active) VALUES
