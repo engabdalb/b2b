@@ -100,12 +100,21 @@
             <th scope="col" class="dashboard-recent__num">{{ 'dashboard.col.totalIncVat' | t }}</th>
             <th scope="col">{{ 'orders.col.date' | t }}</th>
             <th scope="col">{{ 'dashboard.col.invoice' | t }}</th>
+            <th scope="col" class="dashboard-recent__action-col"></th>
           </tr>
         </thead>
         <tbody>
           @for (row of recentOrders(); track row.id) {
             <tr>
-              <td><span class="dashboard-recent__mono">{{ row.id }}</span></td>
+              <td>
+                <a
+                  [routerLink]="['/orders']"
+                  [queryParams]="{ orderId: row.id }"
+                  class="dashboard-recent__order-link dashboard-recent__mono"
+                >
+                  {{ row.id }}
+                </a>
+              </td>
               <td>{{ row.dealerName }}</td>
               <td>{{ ('orders.status.' + row.status) | t }}</td>
               <td class="dashboard-recent__num">
@@ -118,6 +127,19 @@
                 } @else {
                   <span class="dashboard-recent__badge dashboard-recent__badge--muted">{{ 'dashboard.invoiceNone' | t }}</span>
                 }
+              </td>
+              <td class="dashboard-recent__action-cell">
+                <a
+                  [routerLink]="['/orders']"
+                  [queryParams]="{ orderId: row.id }"
+                  class="dashboard-recent__go-btn"
+                  [attr.aria-label]="'#' + row.id + ' ' + ('orders.detail' | t)"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M5 12h14" />
+                    <path d="M13 5l7 7-7 7" />
+                  </svg>
+                </a>
               </td>
             </tr>
           }

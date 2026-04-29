@@ -1,6 +1,7 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import {
   AbstractControl,
   FormArray,
@@ -77,6 +78,8 @@ export class OrdersPageComponent implements OnInit {
   readonly ordersData = inject(OrdersMockService);
   readonly productsData = inject(ProductsMockService);
   readonly dealersData = inject(DealersMockService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly permissions = inject(PermissionsService);
   private readonly fb = inject(FormBuilder);
@@ -110,6 +113,11 @@ export class OrdersPageComponent implements OnInit {
   readonly editFormError = signal<string | null>(null);
   readonly invoicingOrderId = signal<string | null>(null);
   readonly invoiceError = signal<string | null>(null);
+  private readonly requestedOrderId = signal<string | null>(null);
+  private readonly autoOpenRequestedOrder = effect(() => {
+    this.ordersData.orders();
+    this.tryOpenRequestedOrder();
+  });
 
   readonly newOrderForm = this.fb.nonNullable.group({
     dealerId: [''],
@@ -239,6 +247,12 @@ export class OrdersPageComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.route.queryParamMap.subscribe((params) => {
+      const id = String(params.get('orderId') ?? '').trim();
+      this.requestedOrderId.set(id || null);
+      this.tryOpenRequestedOrder();
+    });
+
     this.ordersData.load();
     if (!this.isSuperAdmin()) {
       this.productsData.load(this.auth.user().dealerId ?? null).subscribe();
@@ -258,6 +272,25 @@ export class OrdersPageComponent implements OnInit {
           });
         });
     }
+  }
+
+  private tryOpenRequestedOrder(): void {
+    const orderId = this.requestedOrderId();
+    if (!orderId) {
+      return;
+    }
+    const order = this.ordersData.orders().find((o) => o.id === orderId);
+    if (!order) {
+      return;
+    }
+    this.openDetail(order);
+    this.requestedOrderId.set(null);
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { orderId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 
   applyFilters(): void {

@@ -58,60 +58,168 @@
         }
       </div>
 
+      <div class="ledger-export-bar">
+        <div class="ledger-export-bar__title">{{ 'ledger.export.sectionTitle' | t }}</div>
+        <p class="ledger-export-bar__hint">{{ 'ledger.export.hint' | t }}</p>
+        <div class="ledger-export-bar__row">
+          <label class="ledger-field ledger-field--compact">
+            <span class="ledger-field__label">{{ 'filters.dateFrom' | t }}</span>
+            <input
+              class="field__input"
+              type="date"
+              [value]="filterDateFrom()"
+              (input)="filterDateFrom.set($any($event.target).value)"
+            />
+          </label>
+          <label class="ledger-field ledger-field--compact">
+            <span class="ledger-field__label">{{ 'filters.dateTo' | t }}</span>
+            <input
+              class="field__input"
+              type="date"
+              [value]="filterDateTo()"
+              (input)="filterDateTo.set($any($event.target).value)"
+            />
+          </label>
+          <button type="button" class="btn btn--secondary" (click)="clearLedgerDateFilter()">
+            {{ 'filters.clear' | t }}
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary ledger-export-bar__excel"
+            (click)="exportLedgerToExcel()"
+            [disabled]="loading() || !selectedDealerId()"
+          >
+            {{ 'ledger.export.toExcel' | t }}
+          </button>
+        </div>
+      </div>
+
       @if (isSuperAdmin()) {
+        <div class="ledger-pay-card" id="ledger-charge-card">
+          <button
+            type="button"
+            class="ledger-pay-card__header"
+            [attr.aria-expanded]="chargeSectionOpen()"
+            aria-controls="ledger-charge-body"
+            (click)="toggleChargeSection()"
+          >
+            <h3 class="ledger-pay-card__title">{{ 'ledger.recordCharge' | t }}</h3>
+            <span class="ledger-pay-card__chevron" [class.ledger-pay-card__chevron--open]="chargeSectionOpen()" aria-hidden="true">▼</span>
+          </button>
+          @if (chargeSectionOpen()) {
+            <div id="ledger-charge-body" class="ledger-pay-card__body">
+              <p class="ledger-charge-hint">{{ 'ledger.chargeHint' | t }}</p>
+              @if (adjError(); as ae) {
+                <p class="ledger-banner ledger-banner--error">{{ ae | t }}</p>
+              }
+              @if (adjOk(); as aok) {
+                <p class="ledger-banner ledger-banner--ok">{{ aok | t }}</p>
+              }
+              <div class="ledger-pay-grid">
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.chargeAmountLabel' | t }}</span>
+                  <input
+                    class="field__input"
+                    type="text"
+                    inputmode="decimal"
+                    [value]="adjAmount()"
+                    (input)="adjAmount.set($any($event.target).value)"
+                  />
+                </label>
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.col.date' | t }}</span>
+                  <input
+                    class="field__input"
+                    type="datetime-local"
+                    [value]="adjDate()"
+                    (input)="adjDate.set($any($event.target).value)"
+                  />
+                </label>
+                <label class="ledger-field ledger-field--wide">
+                  <span class="ledger-field__label">{{ 'ledger.chargeNoteLabel' | t }}</span>
+                  <textarea
+                    class="field__input ledger-field__textarea"
+                    rows="2"
+                    [value]="adjNote()"
+                    (input)="adjNote.set($any($event.target).value)"
+                  ></textarea>
+                </label>
+              </div>
+              <div class="ledger-pay-card__actions">
+                <button type="button" class="btn btn--primary" (click)="submitAdjustment()" [disabled]="adjBusy() || payBusy()">
+                  {{ 'ledger.saveCharge' | t }}
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+
         <div class="ledger-pay-card" id="ledger-pay-card">
-          <h3 class="ledger-pay-card__title">
-            {{ (editingPaymentId() ? 'ledger.editPaymentTitle' : 'ledger.recordPayment') | t }}
-          </h3>
-          @if (payError(); as pe) {
-            <p class="ledger-banner ledger-banner--error">{{ pe | t }}</p>
+          <button
+            type="button"
+            class="ledger-pay-card__header"
+            [attr.aria-expanded]="paymentSectionOpen()"
+            aria-controls="ledger-payment-body"
+            (click)="togglePaymentSection()"
+          >
+            <h3 class="ledger-pay-card__title">
+              {{ (editingPaymentId() ? 'ledger.editPaymentTitle' : 'ledger.recordPayment') | t }}
+            </h3>
+            <span class="ledger-pay-card__chevron" [class.ledger-pay-card__chevron--open]="paymentSectionOpen()" aria-hidden="true">▼</span>
+          </button>
+          @if (paymentSectionOpen()) {
+            <div id="ledger-payment-body" class="ledger-pay-card__body">
+              @if (payError(); as pe) {
+                <p class="ledger-banner ledger-banner--error">{{ pe | t }}</p>
+              }
+              @if (payOk(); as ok) {
+                <p class="ledger-banner ledger-banner--ok">{{ ok | t }}</p>
+              }
+              <div class="ledger-pay-grid">
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.col.amount' | t }}</span>
+                  <input class="field__input" type="text" inputmode="decimal" [value]="payAmount()" (input)="payAmount.set($any($event.target).value)" />
+                </label>
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.col.method' | t }}</span>
+                  <select class="field__input" [value]="payMethod()" (change)="payMethod.set($any($event.target).value)">
+                    <option value="bank_transfer">{{ 'ledger.method.bank_transfer' | t }}</option>
+                    <option value="credit_card">{{ 'ledger.method.credit_card' | t }}</option>
+                    <option value="check">{{ 'ledger.method.check' | t }}</option>
+                    <option value="cash">{{ 'ledger.method.cash' | t }}</option>
+                    <option value="other">{{ 'ledger.method.other' | t }}</option>
+                  </select>
+                </label>
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.col.date' | t }}</span>
+                  <input
+                    class="field__input"
+                    type="datetime-local"
+                    [value]="payDate()"
+                    (input)="payDate.set($any($event.target).value)"
+                  />
+                </label>
+                <label class="ledger-field">
+                  <span class="ledger-field__label">{{ 'ledger.col.reference' | t }}</span>
+                  <input class="field__input" type="text" [value]="payReference()" (input)="payReference.set($any($event.target).value)" />
+                </label>
+                <label class="ledger-field ledger-field--wide">
+                  <span class="ledger-field__label">{{ 'ledger.col.note' | t }}</span>
+                  <input class="field__input" type="text" [value]="payNote()" (input)="payNote.set($any($event.target).value)" />
+                </label>
+              </div>
+              <div class="ledger-pay-card__actions">
+                <button type="button" class="btn btn--primary" (click)="submitPayCard()" [disabled]="payBusy() || adjBusy()">
+                  {{ (editingPaymentId() ? 'ledger.savePaymentUpdate' : 'ledger.savePayment') | t }}
+                </button>
+                @if (editingPaymentId()) {
+                  <button type="button" class="btn btn--secondary" (click)="cancelEditPayment()" [disabled]="payBusy()">
+                    {{ 'ledger.cancelEdit' | t }}
+                  </button>
+                }
+              </div>
+            </div>
           }
-          @if (payOk(); as ok) {
-            <p class="ledger-banner ledger-banner--ok">{{ ok | t }}</p>
-          }
-          <div class="ledger-pay-grid">
-            <label class="ledger-field">
-              <span class="ledger-field__label">{{ 'ledger.col.amount' | t }}</span>
-              <input class="field__input" type="text" inputmode="decimal" [value]="payAmount()" (input)="payAmount.set($any($event.target).value)" />
-            </label>
-            <label class="ledger-field">
-              <span class="ledger-field__label">{{ 'ledger.col.method' | t }}</span>
-              <select class="field__input" [value]="payMethod()" (change)="payMethod.set($any($event.target).value)">
-                <option value="bank_transfer">{{ 'ledger.method.bank_transfer' | t }}</option>
-                <option value="credit_card">{{ 'ledger.method.credit_card' | t }}</option>
-                <option value="check">{{ 'ledger.method.check' | t }}</option>
-                <option value="cash">{{ 'ledger.method.cash' | t }}</option>
-                <option value="other">{{ 'ledger.method.other' | t }}</option>
-              </select>
-            </label>
-            <label class="ledger-field">
-              <span class="ledger-field__label">{{ 'ledger.col.date' | t }}</span>
-              <input
-                class="field__input"
-                type="datetime-local"
-                [value]="payDate()"
-                (input)="payDate.set($any($event.target).value)"
-              />
-            </label>
-            <label class="ledger-field">
-              <span class="ledger-field__label">{{ 'ledger.col.reference' | t }}</span>
-              <input class="field__input" type="text" [value]="payReference()" (input)="payReference.set($any($event.target).value)" />
-            </label>
-            <label class="ledger-field ledger-field--wide">
-              <span class="ledger-field__label">{{ 'ledger.col.note' | t }}</span>
-              <input class="field__input" type="text" [value]="payNote()" (input)="payNote.set($any($event.target).value)" />
-            </label>
-          </div>
-          <div class="ledger-pay-card__actions">
-            <button type="button" class="btn btn--primary" (click)="submitPayCard()" [disabled]="payBusy()">
-              {{ (editingPaymentId() ? 'ledger.savePaymentUpdate' : 'ledger.savePayment') | t }}
-            </button>
-            @if (editingPaymentId()) {
-              <button type="button" class="btn btn--secondary" (click)="cancelEditPayment()" [disabled]="payBusy()">
-                {{ 'ledger.cancelEdit' | t }}
-              </button>
-            }
-          </div>
         </div>
       }
 
@@ -138,8 +246,12 @@
               <tr>
                 <td [attr.colspan]="tableColspan()" class="ledger-table__empty">{{ 'table.empty' | t }}</td>
               </tr>
+            } @else if (filteredMovements().length === 0) {
+              <tr>
+                <td [attr.colspan]="tableColspan()" class="ledger-table__empty">{{ 'ledger.filterEmpty' | t }}</td>
+              </tr>
             } @else {
-              @for (row of movements(); track row.id) {
+              @for (row of filteredMovements(); track row.id) {
                 <tr>
                   <td class="ledger-table__date">{{ row.movementAt.replace(' ', ' · ') }}</td>
                   <td>

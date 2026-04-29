@@ -9,6 +9,9 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { AccountMovementRowDto } from '../../core/models/api.types';
 import { catchError, finalize, of } from 'rxjs';
+import { HttpErrorResponse } from '@angular/common/http';
+import { I18nService } from '../../core/services/i18n.service';
+import { downloadAccountLedgerXlsx } from './export-account-ledger-xlsx';
 
 @Component({
   selector: 'app-account-ledger-page',
@@ -21,6 +24,7 @@ export class AccountLedgerPageComponent implements OnInit {
   readonly data = inject(AccountLedgerDataService);
   readonly dealersData = inject(DealersMockService);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
 
   readonly isSuperAdmin = computed(() => this.auth.user().role === 'super_admin');
   readonly isDealerUser = computed(() => this.auth.user().role === 'dealer');
@@ -40,10 +44,53 @@ export class AccountLedgerPageComponent implements OnInit {
   readonly payError = signal<string | null>(null);
   readonly payOk = signal<string | null>(null);
 
+  readonly adjAmount = signal('');
+  readonly adjDate = signal('');
+  readonly adjNote = signal('');
+  readonly adjBusy = signal(false);
+  readonly adjError = signal<string | null>(null);
+  readonly adjOk = signal<string | null>(null);
+
+  /** Borçlandırma / tahsilat kartları accordion (varsayılan kapalı) */
+  readonly chargeSectionOpen = signal(false);
+  readonly paymentSectionOpen = signal(false);
+
   /** Doluysa üst form mevcut tahsilatı günceller (yeni satır oluşmaz). */
   readonly editingPaymentId = signal<string | null>(null);
 
   readonly dealerSearchQuery = signal('');
+
+  /** Liste + Excel: hareket `YYYY-MM-DD` (tarih kısmı) bu aralıkta mı */
+  readonly filterDateFrom = signal('');
+  readonly filterDateTo = signal('');
+
+  readonly selectedDealerName = computed(() => {
+    const id = this.selectedDealerId().trim();
+    if (id === '') {
+      return '';
+    }
+    const d = this.dealersData.dealers().find((x) => x.id === id);
+    return d?.name ?? id;
+  });
+
+  readonly filteredMovements = computed(() => {
+    const list = this.movements();
+    const from = this.filterDateFrom().trim();
+    const to = this.filterDateTo().trim();
+    if (from === '' && to === '') {
+      return list;
+    }
+    return list.filter((row) => {
+      const day = row.movementAt.trim().slice(0, 10);
+      if (from !== '' && day < from) {
+        return false;
+      }
+      if (to !== '' && day > to) {
+        return false;
+      }
+      return true;
+    });
+  });
 
   readonly dealersSorted = computed(() =>
     [...this.dealersData.dealers().filter((d) => d.active)].sort((a, b) =>
@@ -87,6 +134,9 @@ export class AccountLedgerPageComponent implements OnInit {
 
   selectDealer(id: string): void {
     this.cancelEditPayment();
+    this.clearAdjustmentForm();
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
     this.selectedDealerId.set(id);
     this.reloadMovements();
   }
@@ -126,6 +176,72 @@ export class AccountLedgerPageComponent implements OnInit {
     } else {
       this.submitPayment();
     }
+  }
+
+  submitAdjustment(): void {
+    if (!this.isSuperAdmin()) {
+      return;
+    }
+    this.adjError.set(null);
+    this.adjOk.set(null);
+    const dealerId = this.selectedDealerId().trim();
+    if (!dealerId) {
+      this.adjError.set('ledger.paySelectDealer');
+      return;
+    }
+    const raw = this.adjAmount().replace(',', '.').trim();
+    const amount = parseFloat(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      this.adjError.set('ledger.payInvalidAmount');
+      return;
+    }
+    const note = this.adjNote().trim();
+    if (note === '') {
+      this.adjError.set('ledger.chargeNoteRequired');
+      return;
+    }
+    let movementAt = this.adjDate().trim();
+    if (movementAt.includes('T')) {
+      movementAt = movementAt.replace('T', ' ');
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(movementAt)) {
+        movementAt += ':00';
+      }
+    }
+    this.adjBusy.set(true);
+    this.data
+      .postAdjustment({
+        dealer_id: dealerId,
+        amount: Math.round(amount * 100) / 100,
+        description: note,
+        ...(movementAt !== '' ? { movement_at: movementAt } : {}),
+      })
+      .pipe(
+        catchError((err: HttpErrorResponse) => {
+          const body = err.error as { message?: string } | undefined;
+          const msg = typeof body?.message === 'string' ? body.message : 'ledger.chargeError';
+          return of({ ok: false as const, message: msg });
+        }),
+        finalize(() => this.adjBusy.set(false)),
+      )
+      .subscribe((r) => {
+        if (r.ok) {
+          this.adjOk.set('ledger.chargeSaved');
+          this.adjAmount.set('');
+          this.adjDate.set('');
+          this.adjNote.set('');
+          this.reloadMovements();
+        } else {
+          this.adjError.set(r.message ?? 'ledger.chargeError');
+        }
+      });
+  }
+
+  private clearAdjustmentForm(): void {
+    this.adjAmount.set('');
+    this.adjDate.set('');
+    this.adjNote.set('');
+    this.adjError.set(null);
+    this.adjOk.set(null);
   }
 
   submitPayment(): void {
@@ -244,6 +360,7 @@ export class AccountLedgerPageComponent implements OnInit {
     this.payDate.set(this.movementAtToDatetimeLocal(row.movementAt));
     this.payReference.set(row.paymentReference ?? '');
     this.payNote.set(row.paymentNote ?? '');
+    this.paymentSectionOpen.set(true);
     queueMicrotask(() =>
       document.getElementById('ledger-pay-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
     );
@@ -278,6 +395,51 @@ export class AccountLedgerPageComponent implements OnInit {
   private movementAtToDatetimeLocal(s: string): string {
     const t = s.trim().replace(' ', 'T');
     return t.length >= 16 ? t.slice(0, 16) : t;
+  }
+
+  toggleChargeSection(): void {
+    this.chargeSectionOpen.update((v) => !v);
+  }
+
+  togglePaymentSection(): void {
+    this.paymentSectionOpen.update((v) => !v);
+  }
+
+  clearLedgerDateFilter(): void {
+    this.filterDateFrom.set('');
+    this.filterDateTo.set('');
+  }
+
+  exportLedgerToExcel(): void {
+    const rows = this.filteredMovements();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const hhmm = new Date().toTimeString().slice(0, 8).replace(/:/g, '');
+    const filename = `cari_${stamp}_${hhmm}.xlsx`;
+    const t = this.i18n;
+    downloadAccountLedgerXlsx({
+      filename,
+      dealerName: this.selectedDealerName() || this.selectedDealerId(),
+      dateFrom: this.filterDateFrom().trim(),
+      dateTo: this.filterDateTo().trim(),
+      closingBalance: this.closingBalance(),
+      rows,
+      kindLabel: (k) => t.translate(this.kindLabelKey(k)),
+      labels: {
+        summarySheet: t.translate('ledger.export.sheetName'),
+        dealer: t.translate('ledger.export.dealer'),
+        periodFrom: t.translate('ledger.export.periodFrom'),
+        periodTo: t.translate('ledger.export.periodTo'),
+        closingBalanceLabel: t.translate('ledger.export.closingBalance'),
+        lastRowBalanceLabel: t.translate('ledger.export.lastRowBalance'),
+        colDate: t.translate('ledger.col.date'),
+        colDescription: t.translate('ledger.col.description'),
+        colKind: t.translate('ledger.col.kind'),
+        colInvoice: t.translate('ledger.col.invoiceId'),
+        colDebit: t.translate('ledger.col.debit'),
+        colCredit: t.translate('ledger.col.credit'),
+        colBalance: t.translate('ledger.col.balance'),
+      },
+    });
   }
 
   kindLabelKey(kind: string): string {

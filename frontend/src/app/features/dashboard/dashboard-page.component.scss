@@ -166,6 +166,16 @@
   border-bottom: none;
 }
 
+.dashboard-recent__order-link {
+  color: var(--accent-strong);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-recent__order-link:hover {
+  text-decoration: underline;
+}
+
 .dashboard-recent__num {
   text-align: right;
   white-space: nowrap;
@@ -194,4 +204,27 @@
   background: var(--bg-muted, rgba(0, 0, 0, 0.05));
   color: var(--text-secondary);
   font-weight: 500;
+}
+
+.dashboard-recent__action-col {
+  width: 1%;
+}
+
+.dashboard-recent__action-cell {
+  text-align: right;
+}
+
+.dashboard-recent__go-btn {
+  width: 1.8rem;
+  height: 1.8rem;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.dashboard-recent__go-btn:hover {
+  background: var(--bg-muted, rgba(0, 0, 0, 0.05));
+  color: var(--accent-strong);
 }

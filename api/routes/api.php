@@ -21,6 +21,7 @@ $routes = [
     'b2b_account_movements_get' => ['file' => 'b2b_account_movements_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
     'b2b_payment_post' => ['file' => 'b2b_payment_post.php', 'roles' => ['super_admin']],
     'b2b_payment_update_post' => ['file' => 'b2b_payment_update_post.php', 'roles' => ['super_admin']],
+    'b2b_account_adjustment_post' => ['file' => 'b2b_account_adjustment_post.php', 'roles' => ['super_admin']],
     'b2b_dealers_get' => ['file' => 'b2b_dealers_get.php', 'roles' => ['super_admin', 'viewer']],
     'b2b_dealers_save' => ['file' => 'b2b_dealers_save.php', 'roles' => ['super_admin']],
     'b2b_dealer_unit_discounts_get' => ['file' => 'b2b_dealer_unit_discounts_get.php', 'roles' => ['super_admin', 'viewer', 'dealer']],
@@ -36,6 +37,7 @@ $routes = [
     'b2b_returnable_packaging_balances_get' => ['file' => 'b2b_returnable_packaging_balances_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
     'b2b_returnable_packaging_movements_get' => ['file' => 'b2b_returnable_packaging_movements_get.php', 'roles' => ['super_admin', 'dealer', 'viewer']],
     'b2b_returnable_packaging_movement_post' => ['file' => 'b2b_returnable_packaging_movement_post.php', 'roles' => ['super_admin']],
+    'b2b_reports_overview_get' => ['file' => 'b2b_reports_overview_get.php', 'roles' => ['super_admin', 'viewer']],
 ];
 
 if (!isset($routes[$service])) {

@@ -1,9 +1,241 @@
 <app-page-header titleKey="reports.title" subtitleKey="reports.subtitle">
   <ng-container *appCan="perm.reportsExport">
-    <button type="button" class="btn btn--secondary">{{ 'reports.export' | t }}</button>
+    <button type="button" class="btn btn--secondary" (click)="reload()" [disabled]="loading()">
+      {{ 'common.refresh' | t }}
+    </button>
   </ng-container>
 </app-page-header>
 
-<div class="placeholder-card">
-  <p>{{ 'reports.subtitle' | t }}</p>
-</div>
+@if (loadError(); as err) {
+  <p class="reports-banner reports-banner--error">{{ err | t }}</p>
+}
+
+<section class="reports-filter-bar">
+  <div class="reports-filter-bar__title">{{ 'reports.filter.title' | t }}</div>
+  <p class="reports-filter-bar__hint">{{ 'reports.filter.hint' | t }}</p>
+  <div class="reports-filter-bar__row">
+    <label class="reports-field reports-field--compact">
+      <span>{{ 'filters.dateFrom' | t }}</span>
+      <input class="field__input" type="date" [value]="filterDateFrom()" (input)="filterDateFrom.set($any($event.target).value)" />
+    </label>
+    <label class="reports-field reports-field--compact">
+      <span>{{ 'filters.dateTo' | t }}</span>
+      <input class="field__input" type="date" [value]="filterDateTo()" (input)="filterDateTo.set($any($event.target).value)" />
+    </label>
+    <button type="button" class="btn btn--primary" (click)="applyDateFilter()" [disabled]="loading()">
+      {{ 'filters.apply' | t }}
+    </button>
+    <button type="button" class="btn btn--secondary" (click)="clearDateFilter()" [disabled]="loading()">
+      {{ 'filters.clear' | t }}
+    </button>
+  </div>
+</section>
+
+@if (loading()) {
+  <div class="reports-loading">{{ 'common.loading' | t }}</div>
+} @else {
+  <section class="reports-summary-grid">
+    <article class="reports-kpi">
+      <h3>{{ 'reports.kpi.totalDebt' | t }}</h3>
+      <p>{{ (summary()?.totalDebt ?? 0) | number: '1.2-2' }} ₺</p>
+    </article>
+    <article class="reports-kpi">
+      <h3>{{ 'reports.kpi.totalTrayBalance' | t }}</h3>
+      <p>{{ (summary()?.totalTrayBalance ?? 0) | number: '1.0-3' }}</p>
+    </article>
+    <article class="reports-kpi">
+      <h3>{{ 'reports.kpi.totalPayments' | t }}</h3>
+      <p>{{ (summary()?.totalPaymentAmount ?? 0) | number: '1.2-2' }} ₺</p>
+    </article>
+    <article class="reports-kpi">
+      <h3>{{ 'reports.kpi.debtDealerCount' | t }}</h3>
+      <p>{{ summary()?.dealerDebtCount ?? 0 }}</p>
+    </article>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.trayByDealer' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.dealer' | t }}</th>
+          <th>{{ 'reports.col.trayBalance' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of trayBalances(); track row.dealerId) {
+          <tr>
+            <td>{{ row.dealerName }}</td>
+            <td>{{ row.trayBalance | number: '1.0-3' }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="2">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.debts' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.dealer' | t }}</th>
+          <th>{{ 'reports.col.balanceDue' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of dealerDebts(); track row.dealerId) {
+          <tr>
+            <td>{{ row.dealerName }}</td>
+            <td>{{ row.balanceDue | number: '1.2-2' }} ₺</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="2">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.paymentSummary' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.paymentMethod' | t }}</th>
+          <th>{{ 'reports.col.paymentCount' | t }}</th>
+          <th>{{ 'reports.col.totalAmount' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of paymentSummary(); track row.method) {
+          <tr>
+            <td>{{ methodLabelKey(row.method) | t }}</td>
+            <td>{{ row.paymentCount }}</td>
+            <td>{{ row.totalAmount | number: '1.2-2' }} ₺</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.recentPayments' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.date' | t }}</th>
+          <th>{{ 'reports.col.dealer' | t }}</th>
+          <th>{{ 'reports.col.paymentMethod' | t }}</th>
+          <th>{{ 'reports.col.reference' | t }}</th>
+          <th>{{ 'reports.col.totalAmount' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of recentPayments(); track row.id) {
+          <tr>
+            <td>{{ row.paidAt | date: 'dd.MM.yyyy HH:mm' }}</td>
+            <td>{{ row.dealerName }}</td>
+            <td>{{ methodLabelKey(row.method) | t }}</td>
+            <td>{{ row.reference || '-' }}</td>
+            <td>{{ row.amount | number: '1.2-2' }} ₺</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.productOrdersInPeriod' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.product' | t }}</th>
+          <th>{{ 'reports.col.sku' | t }}</th>
+          <th>{{ 'reports.col.orderCount' | t }}</th>
+          <th>{{ 'reports.col.quantity' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of productOrderTotals(); track row.productId) {
+          <tr>
+            <td>{{ row.productName }} ({{ row.unitName }})</td>
+            <td>{{ row.sku }}</td>
+            <td>{{ row.orderCount }}</td>
+            <td>{{ row.totalQuantity | number: '1.0-3' }}</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.topProducts' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.product' | t }}</th>
+          <th>{{ 'reports.col.sku' | t }}</th>
+          <th>{{ 'reports.col.quantity' | t }}</th>
+          <th>{{ 'reports.col.totalRevenue' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of topProducts(); track row.productId) {
+          <tr>
+            <td>{{ row.productName }} ({{ row.unitName }})</td>
+            <td>{{ row.sku }}</td>
+            <td>{{ row.totalQuantity | number: '1.0-3' }}</td>
+            <td>{{ row.totalRevenue | number: '1.2-2' }} ₺</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="4">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+
+  <section class="report-card">
+    <h2>{{ 'reports.sections.topDealers' | t }}</h2>
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>{{ 'reports.col.dealer' | t }}</th>
+          <th>{{ 'reports.col.invoiceCount' | t }}</th>
+          <th>{{ 'reports.col.totalRevenue' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of topDealers(); track row.dealerId) {
+          <tr>
+            <td>{{ row.dealerName }}</td>
+            <td>{{ row.approvedInvoiceCount }}</td>
+            <td>{{ row.totalRevenue | number: '1.2-2' }} ₺</td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="3">{{ 'table.empty' | t }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </section>
+}

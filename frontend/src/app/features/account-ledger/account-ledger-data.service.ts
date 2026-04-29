@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AccountAdjustmentPostResponse,
   AccountMovementsApiResponse,
   PaymentPostResponse,
   PaymentUpdateResponse,
@@ -40,5 +41,14 @@ export class AccountLedgerDataService {
     note?: string;
   }): Observable<PaymentUpdateResponse> {
     return this.api.post<PaymentUpdateResponse>('b2b_payment_update_post', body);
+  }
+
+  postAdjustment(body: {
+    dealer_id: string;
+    amount: number;
+    movement_at?: string;
+    description: string;
+  }): Observable<AccountAdjustmentPostResponse> {
+    return this.api.post<AccountAdjustmentPostResponse>('b2b_account_adjustment_post', body);
   }
 }

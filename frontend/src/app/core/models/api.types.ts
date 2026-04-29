@@ -227,6 +227,13 @@ export interface PaymentUpdateResponse {
   message?: string;
 }
 
+export interface AccountAdjustmentPostResponse {
+  ok: boolean;
+  movementId?: string;
+  error?: string;
+  message?: string;
+}
+
 export interface UserListDto {
   id: string;
   name: string;
@@ -236,4 +243,83 @@ export interface UserListDto {
   roleKey: string;
   active: boolean;
   dealerId?: string | null;
+}
+
+export interface ReportsTrayBalanceDto {
+  dealerId: string;
+  dealerName: string;
+  trayBalance: number;
+}
+
+export interface ReportsDealerDebtDto {
+  dealerId: string;
+  dealerName: string;
+  balanceDue: number;
+}
+
+export interface ReportsPaymentSummaryDto {
+  method: 'bank_transfer' | 'credit_card' | 'check' | 'cash' | 'other' | string;
+  paymentCount: number;
+  totalAmount: number;
+}
+
+export interface ReportsRecentPaymentDto {
+  id: string;
+  dealerId: string;
+  dealerName: string;
+  amount: number;
+  method: 'bank_transfer' | 'credit_card' | 'check' | 'cash' | 'other' | string;
+  reference: string;
+  note?: string | null;
+  paidAt: string;
+}
+
+export interface ReportsTopProductDto {
+  productId: string;
+  sku: string;
+  productName: string;
+  unitName: string;
+  totalQuantity: number;
+  totalRevenue: number;
+}
+
+export interface ReportsTopDealerDto {
+  dealerId: string;
+  dealerName: string;
+  approvedInvoiceCount: number;
+  totalRevenue: number;
+}
+
+/** Dönem içi siparişlerde ürün bazında toplam miktar ve sipariş adedi */
+export interface ReportsProductOrderTotalDto {
+  productId: string;
+  sku: string;
+  productName: string;
+  unitName: string;
+  totalQuantity: number;
+  /** Ürünün satır olarak geçtiği farklı sipariş sayısı */
+  orderCount: number;
+}
+
+export interface ReportsOverviewApiResponse {
+  ok: boolean;
+  summary?: {
+    totalDebt: number;
+    totalTrayBalance: number;
+    totalPaymentAmount: number;
+    dealerDebtCount: number;
+  };
+  dateRange?: {
+    dateFrom: string;
+    dateTo: string;
+  };
+  trayBalances?: ReportsTrayBalanceDto[];
+  dealerDebts?: ReportsDealerDebtDto[];
+  paymentSummary?: ReportsPaymentSummaryDto[];
+  recentPayments?: ReportsRecentPaymentDto[];
+  topProducts?: ReportsTopProductDto[];
+  topDealers?: ReportsTopDealerDto[];
+  productOrderTotals?: ReportsProductOrderTotalDto[];
+  error?: string;
+  message?: string;
 }
