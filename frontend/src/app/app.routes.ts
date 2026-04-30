@@ -56,6 +56,13 @@ export const routes: Routes = [
         data: { permissions: [Permission.depositsView] },
       },
       {
+        path: 'audit-logs',
+        loadComponent: () =>
+          import('./features/audit-logs/audit-logs-page.component').then((m) => m.AuditLogsPageComponent),
+        canActivate: [permissionGuard],
+        data: { permissions: [Permission.auditView] },
+      },
+      {
         path: 'dealers',
         loadComponent: () =>
           import('./features/dealers/dealers-page.component').then((m) => m.DealersPageComponent),

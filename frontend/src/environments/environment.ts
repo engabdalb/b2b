@@ -4,4 +4,6 @@ export const environment = {
   apiUrl: 'http://127.0.0.1:8181/b2b/api',
   /** true ise API olmadan yerel mock oturum (liste verileri yine apiUrl ile API’den gelir) */
   useMockAuth: false,
+  appVersion: '1.0.0',
+  platform: 'web',
 };

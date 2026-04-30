@@ -42,8 +42,14 @@ $row = $sel->fetch(PDO::FETCH_ASSOC);
 if (!$row) {
     json_response(['ok' => false, 'error' => 'not_found', 'message' => 'Fatura bulunamadı.'], 404);
 }
+b2b_audit_set_entity((string) $row['id'], 'invoice');
 
 $current = (string) $row['status'];
+$beforeState = [
+    'id' => (string) $row['id'],
+    'status' => $current,
+    'orderId' => (string) $row['orderId'],
+];
 
 if ($statusRaw === 'approved') {
     if ($current !== 'pending') {
@@ -150,6 +156,12 @@ while ($lr = $lineFetch->fetch(PDO::FETCH_ASSOC)) {
         'discountAmount' => (float) $lr['discountAmount'],
     ];
 }
+
+b2b_audit_set_before_after($beforeState, [
+    'id' => (string) $row['id'],
+    'status' => $statusRaw,
+    'orderId' => (string) $row['orderId'],
+]);
 
 json_response([
     'ok' => true,

@@ -38,6 +38,17 @@ if ($idRaw === '') {
         ':active' => $active ? 1 : 0,
     ]);
     $newId = (int) $pdo->lastInsertId();
+    b2b_audit_set_entity($newId, 'dealer');
+    b2b_audit_set_before_after(null, [
+        'id' => (string) $newId,
+        'name' => $name,
+        'region' => $region,
+        'il' => $il,
+        'ilce' => $ilce,
+        'konum' => $konum,
+        'telefon' => $telefon,
+        'active' => $active,
+    ]);
 } else {
     $id = (int) $idRaw;
     if ($id < 1) {
@@ -48,6 +59,9 @@ if ($idRaw === '') {
     if (!$chk->fetchColumn()) {
         json_response(['ok' => false, 'error' => 'not_found', 'message' => 'Bayi bulunamadı.'], 404);
     }
+    $beforeStmt = $pdo->prepare('SELECT id, name, region, il, ilce, konum, telefon, active FROM b2b_dealers WHERE id = :id LIMIT 1');
+    $beforeStmt->execute([':id' => $id]);
+    $beforeState = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
     $upd = $pdo->prepare(
         'UPDATE b2b_dealers SET name = :name, region = :region, il = :il, ilce = :ilce, konum = :konum, telefon = :telefon, active = :active WHERE id = :id',
     );
@@ -62,6 +76,17 @@ if ($idRaw === '') {
         ':id' => $id,
     ]);
     $newId = $id;
+    b2b_audit_set_entity($newId, 'dealer');
+    b2b_audit_set_before_after($beforeState, [
+        'id' => (string) $newId,
+        'name' => $name,
+        'region' => $region,
+        'il' => $il,
+        'ilce' => $ilce,
+        'konum' => $konum,
+        'telefon' => $telefon,
+        'active' => $active,
+    ]);
 }
 
 $sel = $pdo->prepare(

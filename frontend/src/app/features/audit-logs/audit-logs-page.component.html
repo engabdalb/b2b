@@ -1,0 +1,92 @@
+<app-page-header titleKey="audit.title" subtitleKey="audit.subtitle">
+  <button type="button" class="btn btn--secondary" (click)="reload()" [disabled]="data.loading()">
+    {{ 'common.refresh' | t }}
+  </button>
+</app-page-header>
+
+<section class="list-filters" [attr.aria-label]="'filters.sectionLabel' | t">
+  <div class="list-filters__grid">
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'audit.filter.action' | t }}</span>
+      <input class="field__input" type="text" [value]="action()" (input)="action.set($any($event.target).value)" />
+    </label>
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'audit.filter.entityType' | t }}</span>
+      <input
+        class="field__input"
+        type="text"
+        [value]="entityType()"
+        (input)="entityType.set($any($event.target).value)"
+      />
+    </label>
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'audit.filter.status' | t }}</span>
+      <select class="field__input" [value]="status()" (change)="status.set($any($event.target).value)">
+        <option value="">{{ 'filters.invoiceAny' | t }}</option>
+        <option value="ok">OK</option>
+        <option value="error">ERROR</option>
+      </select>
+    </label>
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'filters.dateFrom' | t }}</span>
+      <input class="field__input" type="date" [value]="dateFrom()" (input)="dateFrom.set($any($event.target).value)" />
+    </label>
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'filters.dateTo' | t }}</span>
+      <input class="field__input" type="date" [value]="dateTo()" (input)="dateTo.set($any($event.target).value)" />
+    </label>
+    <label class="list-filters__field">
+      <span class="list-filters__label">{{ 'audit.filter.limit' | t }}</span>
+      <input class="field__input" type="number" min="1" max="500" [value]="limit()" (input)="limit.set($any($event.target).value)" />
+    </label>
+  </div>
+  <div class="list-filters__actions">
+    <button type="button" class="btn btn--primary" (click)="reload()">{{ 'filters.apply' | t }}</button>
+    <button type="button" class="btn btn--ghost" (click)="clearFilters()">{{ 'filters.clear' | t }}</button>
+  </div>
+</section>
+
+@if (data.error(); as err) {
+  <p class="audit-banner audit-banner--error">{{ err | t }}</p>
+}
+
+@if (data.loading()) {
+  <p class="audit-muted">{{ 'common.loading' | t }}</p>
+} @else if (!hasRows()) {
+  <p class="audit-muted">{{ 'table.empty' | t }}</p>
+} @else {
+  <div class="audit-table-scroll">
+    <table class="audit-table">
+      <thead>
+        <tr>
+          <th>{{ 'audit.col.date' | t }}</th>
+          <th>{{ 'audit.col.action' | t }}</th>
+          <th>{{ 'audit.col.entity' | t }}</th>
+          <th>{{ 'audit.col.user' | t }}</th>
+          <th>{{ 'audit.col.status' | t }}</th>
+          <th>{{ 'audit.col.ip' | t }}</th>
+          <th>{{ 'audit.col.device' | t }}</th>
+          <th>{{ 'audit.col.version' | t }}</th>
+          <th>{{ 'audit.col.requestId' | t }}</th>
+          <th>{{ 'audit.col.ua' | t }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (row of data.logs(); track row.id) {
+          <tr>
+            <td>{{ row.createdAt }}</td>
+            <td>{{ row.action }}</td>
+            <td>{{ row.entityType }} / {{ row.entityId }}</td>
+            <td>{{ row.actorRole }} #{{ row.actorUserId ?? '-' }}</td>
+            <td>{{ statusText(row) }}</td>
+            <td>{{ row.ipAddress || '-' }}</td>
+            <td>{{ row.deviceType }} {{ row.platform ? ('/ ' + row.platform) : '' }}</td>
+            <td>{{ row.appVersion || '-' }}</td>
+            <td>{{ row.requestId || '-' }}</td>
+            <td [title]="row.userAgent">{{ shortText(row.userAgent || '-', 70) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+}

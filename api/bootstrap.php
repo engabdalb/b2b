@@ -6,6 +6,9 @@ declare(strict_types=1);
  */
 function json_response(array $payload, int $status = 200): void
 {
+    if (function_exists('b2b_audit_finalize')) {
+        b2b_audit_finalize($status, $payload);
+    }
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);

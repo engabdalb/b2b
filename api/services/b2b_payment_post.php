@@ -86,6 +86,8 @@ try {
         ':note' => $note,
     ]);
     $paymentId = (int) $pdo->lastInsertId();
+    b2b_audit_set_entity($paymentId, 'payment');
+    b2b_audit_append_meta(['dealer_id' => $dealerId]);
 
     $movIns = $pdo->prepare(
         'INSERT INTO b2b_account_movements (dealer_id, movement_at, kind, invoice_id, payment_id, debit_try, credit_try, description)

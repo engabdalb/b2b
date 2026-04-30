@@ -50,6 +50,13 @@ if (!$orderRow) {
 }
 $orderId = (int) $orderRow['id'];
 $dealerId = (int) $orderRow['dealer_id'];
+b2b_audit_set_entity($orderRef, 'order');
+
+$beforeStmt = $pdo->prepare(
+    'SELECT external_id AS id, status, total, vat_total, total_inc_vat, tray_count, description FROM b2b_orders WHERE id = :id LIMIT 1',
+);
+$beforeStmt->execute([':id' => $orderId]);
+$beforeState = $beforeStmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
 $normalized = [];
 foreach ($linesRaw as $row) {
@@ -224,6 +231,8 @@ $totalStmt = $pdo->prepare(
 );
 $totalStmt->execute([':id' => $orderId]);
 $meta = $totalStmt->fetch(PDO::FETCH_ASSOC);
+
+b2b_audit_set_before_after($beforeState, $meta ?: null);
 
 json_response([
     'ok' => true,

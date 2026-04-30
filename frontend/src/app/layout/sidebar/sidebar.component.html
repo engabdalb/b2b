@@ -92,6 +92,12 @@
                 <polyline points="9 12 12 15 15 12" />
               </svg>
             }
+            @case ('audit') {
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+            }
             @case ('dealers') {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -138,7 +144,7 @@
     }
   </nav>
 
-  <div class="sidebar__footer">
+  <div style="display: none;" class="sidebar__footer">
     <div class="sidebar__promo">
       <p class="sidebar__promo-title">{{ brand.supportTitleI18nKey | t }}</p>
       <p class="sidebar__promo-text">{{ brand.supportTextI18nKey | t }}</p>

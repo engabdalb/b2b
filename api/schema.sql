@@ -202,6 +202,33 @@ CREATE TABLE IF NOT EXISTS b2b_account_movements (
   KEY idx_bam_payment (payment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS b2b_audit_logs (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  actor_user_id INT NULL,
+  actor_role VARCHAR(32) NOT NULL DEFAULT 'guest',
+  actor_dealer_id INT NULL,
+  action VARCHAR(80) NOT NULL,
+  entity_type VARCHAR(40) NOT NULL,
+  entity_id VARCHAR(80) NOT NULL,
+  before_json JSON NULL,
+  after_json JSON NULL,
+  meta_json JSON NULL,
+  request_id VARCHAR(64) NOT NULL DEFAULT '',
+  ip_address VARCHAR(45) NOT NULL DEFAULT '',
+  user_agent VARCHAR(1024) NOT NULL DEFAULT '',
+  device_type ENUM('desktop','mobile','tablet','bot','unknown') NOT NULL DEFAULT 'unknown',
+  app_version VARCHAR(64) NOT NULL DEFAULT '',
+  platform VARCHAR(32) NOT NULL DEFAULT '',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_audit_created (created_at),
+  KEY idx_audit_action (action, created_at),
+  KEY idx_audit_entity (entity_type, entity_id, created_at),
+  KEY idx_audit_actor (actor_user_id, created_at),
+  KEY idx_audit_request (request_id),
+  CONSTRAINT fk_audit_user FOREIGN KEY (actor_user_id) REFERENCES b2b_users (id) ON DELETE SET NULL,
+  CONSTRAINT fk_audit_dealer FOREIGN KEY (actor_dealer_id) REFERENCES b2b_dealers (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 INSERT INTO b2b_dealers (id, name, region, il, ilce, konum, telefon, active) VALUES
   (1, 'TEZGAH', 'Merkez', '', '', '', '', 1),
   (2, 'MEHMET EMİN AKPULAT', 'Şube', '', '', '', '5426125541', 1),

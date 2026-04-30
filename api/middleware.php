@@ -13,11 +13,54 @@ $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '';
 $parts = array_values(array_filter(explode('/', $path), static fn ($p) => $p !== ''));
 $service = $parts === [] ? '' : $parts[array_key_last($parts)];
 
+$headers = get_request_headers_compat();
+$forwardedFor = $headers['X-Forwarded-For'] ?? $headers['x-forwarded-for'] ?? '';
+$realIp = $headers['X-Real-IP'] ?? $headers['x-real-ip'] ?? '';
+$clientIp = '';
+if (is_string($forwardedFor) && $forwardedFor !== '') {
+    $chunks = array_map('trim', explode(',', $forwardedFor));
+    $clientIp = (string) ($chunks[0] ?? '');
+}
+if ($clientIp === '' && is_string($realIp) && $realIp !== '') {
+    $clientIp = trim($realIp);
+}
+if ($clientIp === '') {
+    $clientIp = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+}
+
+$ua = (string) ($headers['User-Agent'] ?? $headers['user-agent'] ?? '');
+$uaLower = strtolower($ua);
+$deviceType = 'desktop';
+if ($uaLower === '') {
+    $deviceType = 'unknown';
+} elseif (str_contains($uaLower, 'bot') || str_contains($uaLower, 'spider') || str_contains($uaLower, 'crawl')) {
+    $deviceType = 'bot';
+} elseif (str_contains($uaLower, 'tablet') || str_contains($uaLower, 'ipad')) {
+    $deviceType = 'tablet';
+} elseif (str_contains($uaLower, 'mobi') || str_contains($uaLower, 'android') || str_contains($uaLower, 'iphone')) {
+    $deviceType = 'mobile';
+}
+
+$requestId = (string) ($headers['X-Request-Id'] ?? $headers['x-request-id'] ?? '');
+if ($requestId === '') {
+    $requestId = bin2hex(random_bytes(8));
+}
+header('X-Request-Id: ' . $requestId);
+
+$GLOBALS['b2b_request_ctx'] = [
+    'service' => $service,
+    'request_id' => $requestId,
+    'ip_address' => $clientIp,
+    'user_agent' => $ua,
+    'device_type' => $deviceType,
+    'app_version' => (string) ($headers['X-App-Version'] ?? $headers['x-app-version'] ?? ''),
+    'platform' => (string) ($headers['X-Platform'] ?? $headers['x-platform'] ?? ''),
+    'method' => (string) ($_SERVER['REQUEST_METHOD'] ?? ''),
+];
+
 if ($service === 'b2b_login') {
     return;
 }
-
-$headers = get_request_headers_compat();
 $authHeader = $headers['Authorization'] ?? $headers['authorization'] ?? '';
 $jwt = preg_replace('/^Bearer\s+/i', '', trim($authHeader));
 

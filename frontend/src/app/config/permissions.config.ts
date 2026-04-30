@@ -23,6 +23,8 @@ export const Permission = {
   depositsView: 'deposits.view',
   /** Cari hesap hareketleri (bayi bazlı) */
   ledgerView: 'ledger.view',
+  /** İşlem denetim/audit kayıtlarını görüntüleme */
+  auditView: 'audit.view',
   _all: '*',
 } as const;
 
@@ -38,6 +40,7 @@ const VIEW_ONLY: PermissionId[] = [
   Permission.settingsView,
   Permission.depositsView,
   Permission.ledgerView,
+  Permission.auditView,
 ];
 
 /** Bayi: siparişleri görüntüleme ve yeni sipariş; gelen sipariş düzenleme yok */

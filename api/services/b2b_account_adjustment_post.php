@@ -70,6 +70,8 @@ try {
         ':desc' => $description,
     ]);
     $movementId = (int) $pdo->lastInsertId();
+    b2b_audit_set_entity($movementId, 'ledger');
+    b2b_audit_append_meta(['dealer_id' => $dealerId]);
 } catch (Throwable $e) {
     if (str_contains($e->getMessage(), 'b2b_account_movements') || str_contains($e->getMessage(), 'Unknown table')) {
         json_response(['ok' => false, 'error' => 'schema', 'message' => 'Cari tabloları eksik. migrations/b2b_account_movements.sql çalıştırın.'], 500);

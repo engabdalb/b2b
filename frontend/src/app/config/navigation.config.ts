@@ -6,6 +6,7 @@ export type NavIcon =
   | 'invoices'
   | 'ledger'
   | 'deposits'
+  | 'audit'
   | 'dealers'
   | 'products'
   | 'units'
@@ -57,6 +58,13 @@ export const NAVIGATION_ITEMS: NavItemConfig[] = [
     i18nKey: 'nav.deposits',
     icon: 'deposits',
     permissions: [Permission.depositsView],
+  },
+  {
+    navKey: 'audit',
+    path: '/audit-logs',
+    i18nKey: 'nav.audit',
+    icon: 'audit',
+    permissions: [Permission.auditView],
   },
   {
     navKey: 'dealers',

@@ -47,6 +47,8 @@ $prow = $sel->fetch(PDO::FETCH_ASSOC);
 if (!$prow) {
     json_response(['ok' => false, 'error' => 'not_found', 'message' => 'Ödeme kaydı bulunamadı.'], 404);
 }
+b2b_audit_set_entity($paymentId, 'payment');
+b2b_audit_append_meta(['dealer_id' => $dealerId]);
 
 if ((int) $prow['dealer_id'] !== $dealerId) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Ödeme bu bayiye ait değil.'], 400);

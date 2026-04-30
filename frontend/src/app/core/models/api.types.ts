@@ -88,6 +88,26 @@ export interface ReturnablePackagingMovementDto {
   createdAt: string;
 }
 
+export interface AuditLogDto {
+  id: string;
+  actorUserId: string | null;
+  actorRole: string;
+  actorDealerId: string | null;
+  action: string;
+  entityType: string;
+  entityId: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  meta: Record<string, unknown>;
+  requestId: string;
+  ipAddress: string;
+  userAgent: string;
+  deviceType: string;
+  appVersion: string;
+  platform: string;
+  createdAt: string;
+}
+
 /** Sipariş satırı — fiyatlar sipariş anına sabitlenir; matrah line_total, KDV tutarı ayrı saklanır. */
 export interface OrderLineDto {
   id: string;
