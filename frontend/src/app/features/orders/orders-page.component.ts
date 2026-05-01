@@ -231,6 +231,9 @@ export class OrdersPageComponent implements OnInit {
     const q = this.createProductSearch().trim().toLowerCase();
     const uf = this.createUnitFilter();
     return products.filter((p) => {
+      if (p.active === false) {
+        return false;
+      }
       const code = (p.unitCode ?? '').trim().toLowerCase();
       if (uf === 'kg' && code !== 'kg') {
         return false;
@@ -245,6 +248,14 @@ export class OrdersPageComponent implements OnInit {
       return hay.includes(q);
     });
   });
+
+  /** Sipariş düzenleme: aktif ürünler + satırda seçili pasif ürün (geçmiş sipariş koruma). */
+  productsSelectableForEditLine(currentProductId: string | null | undefined): ProductDto[] {
+    const cur = String(currentProductId ?? '').trim();
+    return this.productsData.products().filter(
+      (p) => p.active !== false || (cur !== '' && p.id === cur),
+    );
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((params) => {

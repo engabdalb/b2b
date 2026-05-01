@@ -98,7 +98,7 @@ foreach ($linesRaw as $idx => $row) {
     ];
 }
 
-$productStmt = $pdo->prepare('SELECT id, sku, name, price, unit_id AS unitId FROM b2b_products WHERE id = :id LIMIT 1');
+$productStmt = $pdo->prepare('SELECT id, sku, name, price, unit_id AS unitId, active FROM b2b_products WHERE id = :id LIMIT 1');
 $unitDiscountMap = b2b_dealer_unit_discount_map($pdo, $dealerId);
 
 try {
@@ -132,6 +132,10 @@ try {
         if (!$p) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'validation', 'message' => 'Bilinmeyen ürün: ' . $line['product_id']], 400);
+        }
+        if ((int) ($p['active'] ?? 1) !== 1) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'inactive_product', 'message' => 'Pasif ürün siparişe eklenemez.'], 400);
         }
         $unitPrice = round((float) $p['price'], 2);
         $uid = (int) $p['unitId'];

@@ -105,7 +105,11 @@ foreach ($linesRaw as $row) {
     ];
 }
 
-$productStmt = $pdo->prepare('SELECT id, sku, name, price FROM b2b_products WHERE id = :id LIMIT 1');
+$existingPidStmt = $pdo->prepare('SELECT DISTINCT product_id FROM b2b_order_items WHERE order_id = :oid');
+$existingPidStmt->execute([':oid' => $orderId]);
+$existingProductIds = array_map(static fn ($v) => (int) $v, $existingPidStmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
+
+$productStmt = $pdo->prepare('SELECT id, sku, name, price, active FROM b2b_products WHERE id = :id LIMIT 1');
 
 try {
     $pdo->beginTransaction();
@@ -129,6 +133,11 @@ try {
         if (!$p) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'validation', 'message' => 'Bilinmeyen ürün: ' . $line['product_id']], 400);
+        }
+        $pid = (int) $p['id'];
+        if ((int) ($p['active'] ?? 1) !== 1 && !in_array($pid, $existingProductIds, true)) {
+            $pdo->rollBack();
+            json_response(['ok' => false, 'error' => 'inactive_product', 'message' => 'Pasif ürün bu siparişe yeni satır olarak eklenemez.'], 400);
         }
         $unitPrice = round((float) $p['price'], 2);
         $lineTotal = round($line['quantity'] * $unitPrice - $line['discount_amount'], 2);

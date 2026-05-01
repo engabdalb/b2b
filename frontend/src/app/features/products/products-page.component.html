@@ -18,6 +18,7 @@
             <th>{{ 'products.col.packagingType' | t }}</th>
             <th>{{ 'products.col.packagingPerQty' | t }}</th>
             <th>{{ 'products.col.price' | t }}</th>
+            <th>{{ 'products.col.active' | t }}</th>
             <th *appCan="perm.productsEdit" class="products-table__actions-col"></th>
           </tr>
         </thead>
@@ -41,6 +42,7 @@
                 }
               </td>
               <td>{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
+              <td>{{ (p.active !== false ? 'dealers.yes' : 'dealers.no') | t }}</td>
               <td *appCan="perm.productsEdit" class="products-table__actions">
                 <button type="button" class="btn btn--secondary btn--sm" (click)="openEdit(p)">
                   {{ 'products.edit' | t }}
@@ -133,6 +135,11 @@
         @if (form.controls.returnablePackagingUnitsPerQty.touched && form.controls.returnablePackagingUnitsPerQty.invalid) {
           <span class="field__hint">{{ 'products.packagingUnitsInvalid' | t }}</span>
         }
+      </label>
+
+      <label class="field field--checkbox">
+        <input type="checkbox" formControlName="active" />
+        <span class="field__label">{{ 'products.fieldActive' | t }}</span>
       </label>
 
       <input type="hidden" formControlName="id" />

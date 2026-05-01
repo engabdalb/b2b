@@ -224,6 +224,8 @@
   "products.col.name": "Product",
   "products.col.unit": "Unit",
   "products.col.price": "Price",
+  "products.col.active": "Active",
+  "products.fieldActive": "Product can be selected on orders (inactive hides it from new lines)",
   "products.col.packagingType": "Returnable packaging",
   "products.col.packagingPerQty": "Packaging per sale qty",
   "products.packagingNone": "None",

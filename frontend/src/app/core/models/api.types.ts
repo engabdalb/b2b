@@ -38,6 +38,8 @@ export interface ProductDto {
   id: string;
   sku: string;
   name: string;
+  /** Siparişe çıkarılabilir mi (pasif ürün yeni sipariş satırına eklenemez). API’da yoksa aktif kabul edilir. */
+  active?: boolean;
   unitId: string;
   /** API: kısa kod (ör. tepsi, kg) */
   unitCode?: string;

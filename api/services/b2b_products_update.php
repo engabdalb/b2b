@@ -47,6 +47,18 @@ if ($unitsPer <= 0 || $unitsPer > 999999.999) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Ambalaj çarpanı 0 ile 999999 arasında olmalı.'], 400);
 }
 
+$active = null;
+if (array_key_exists('active', $body)) {
+    $av = $body['active'];
+    if (is_bool($av)) {
+        $active = $av;
+    } elseif ($av === 0 || $av === '0' || $av === false || $av === 'false') {
+        $active = false;
+    } elseif ($av === 1 || $av === '1' || $av === true || $av === 'true') {
+        $active = true;
+    }
+}
+
 if ($returnableTypeId !== null) {
     $tCheck = $pdo->prepare('SELECT id FROM b2b_returnable_packaging_types WHERE id = :id AND active = 1 LIMIT 1');
     $tCheck->execute([':id' => $returnableTypeId]);
@@ -71,22 +83,26 @@ if (!$uRow) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Geçersiz birim (veya pasif).'], 400);
 }
 
-$stmt = $pdo->prepare(
-    'UPDATE b2b_products SET sku = :sku, name = :name, unit_id = :uid, price = :price,
-     returnable_packaging_type_id = :rtid, returnable_packaging_units_per_qty = :rper
-     WHERE id = :id',
-);
+$sqlUpd = 'UPDATE b2b_products SET sku = :sku, name = :name, unit_id = :uid, price = :price,
+     returnable_packaging_type_id = :rtid, returnable_packaging_units_per_qty = :rper';
+$paramsUpd = [
+    ':sku' => $sku,
+    ':name' => $name,
+    ':uid' => $unitId,
+    ':price' => $price,
+    ':rtid' => $returnableTypeId,
+    ':rper' => $unitsPer,
+    ':id' => $id,
+];
+if ($active !== null) {
+    $sqlUpd .= ', active = :active';
+    $paramsUpd[':active'] = $active ? 1 : 0;
+}
+$sqlUpd .= ' WHERE id = :id';
+$stmt = $pdo->prepare($sqlUpd);
 
 try {
-    $stmt->execute([
-        ':sku' => $sku,
-        ':name' => $name,
-        ':uid' => $unitId,
-        ':price' => $price,
-        ':rtid' => $returnableTypeId,
-        ':rper' => $unitsPer,
-        ':id' => $id,
-    ]);
+    $stmt->execute($paramsUpd);
 } catch (PDOException $e) {
     if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate')) {
         json_response(['ok' => false, 'error' => 'duplicate_sku', 'message' => 'Bu SKU başka bir üründe kullanılıyor.'], 409);
@@ -105,6 +121,10 @@ if ($returnableTypeId !== null) {
     }
 }
 
+$aStmt = $pdo->prepare('SELECT active FROM b2b_products WHERE id = :id LIMIT 1');
+$aStmt->execute([':id' => $id]);
+$activeOut = ((int) $aStmt->fetchColumn()) === 1;
+
 json_response([
     'ok' => true,
     'item' => [
@@ -119,5 +139,6 @@ json_response([
         'returnablePackagingUnitsPerQty' => $unitsPer,
         'returnablePackagingTypeCode' => $rtCode,
         'returnablePackagingTypeName' => $rtName,
+        'active' => $activeOut,
     ],
 ]);

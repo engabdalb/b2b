@@ -72,6 +72,7 @@ export class ProductsMockService {
   create(
     payload: Pick<ProductDto, 'sku' | 'name' | 'price'> & {
       unit_id: string;
+      active?: boolean;
       returnable_packaging_type_id?: string | null;
       returnable_packaging_units_per_qty?: number;
     },
@@ -100,6 +101,7 @@ export class ProductsMockService {
           ? String(payload.returnablePackagingTypeId).trim()
           : null,
       returnable_packaging_units_per_qty: payload.returnablePackagingUnitsPerQty ?? 1,
+      active: payload.active !== false,
     };
     if (!this.hasApi()) {
       return of({ ok: false, error: 'no_api', message: 'API adresi tanımlı değil.' });

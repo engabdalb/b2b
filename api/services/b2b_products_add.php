@@ -42,6 +42,18 @@ if ($unitsPer <= 0 || $unitsPer > 999999.999) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Ambalaj çarpanı 0 ile 999999 arasında olmalı.'], 400);
 }
 
+$active = true;
+if (array_key_exists('active', $body)) {
+    $av = $body['active'];
+    if (is_bool($av)) {
+        $active = $av;
+    } elseif ($av === 0 || $av === '0' || $av === false || $av === 'false') {
+        $active = false;
+    } elseif ($av === 1 || $av === '1' || $av === true || $av === 'true') {
+        $active = true;
+    }
+}
+
 if ($returnableTypeId !== null) {
     $tCheck = $pdo->prepare('SELECT id FROM b2b_returnable_packaging_types WHERE id = :id AND active = 1 LIMIT 1');
     $tCheck->execute([':id' => $returnableTypeId]);
@@ -58,8 +70,8 @@ if (!$uRow) {
 }
 
 $stmt = $pdo->prepare(
-    'INSERT INTO b2b_products (sku, name, unit_id, price, returnable_packaging_type_id, returnable_packaging_units_per_qty)
-     VALUES (:sku, :name, :uid, :price, :rtid, :rper)',
+    'INSERT INTO b2b_products (sku, name, unit_id, price, returnable_packaging_type_id, returnable_packaging_units_per_qty, active)
+     VALUES (:sku, :name, :uid, :price, :rtid, :rper, :active)',
 );
 
 try {
@@ -70,6 +82,7 @@ try {
         ':price' => $price,
         ':rtid' => $returnableTypeId,
         ':rper' => $unitsPer,
+        ':active' => $active ? 1 : 0,
     ]);
 } catch (PDOException $e) {
     if ($e->getCode() === '23000' || str_contains($e->getMessage(), 'Duplicate')) {
@@ -105,5 +118,6 @@ json_response([
         'returnablePackagingUnitsPerQty' => $unitsPer,
         'returnablePackagingTypeCode' => $rtCode,
         'returnablePackagingTypeName' => $rtName,
+        'active' => $active,
     ],
 ]);

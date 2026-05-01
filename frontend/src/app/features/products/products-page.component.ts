@@ -47,6 +47,7 @@ export class ProductsPageComponent implements OnInit {
       Validators.required,
       Validators.min(0.001),
     ]),
+    active: this.fb.nonNullable.control(true),
   });
 
   readonly unitOptions = () => this.unitsData.units().filter((u) => u.active);
@@ -69,6 +70,7 @@ export class ProductsPageComponent implements OnInit {
       price: null,
       returnablePackagingTypeId: '',
       returnablePackagingUnitsPerQty: 1,
+      active: true,
     });
     this.formOpen.set(true);
   }
@@ -86,6 +88,7 @@ export class ProductsPageComponent implements OnInit {
         p.returnablePackagingUnitsPerQty !== undefined && p.returnablePackagingUnitsPerQty !== null
           ? p.returnablePackagingUnitsPerQty
           : 1,
+      active: p.active !== false,
     });
     this.formOpen.set(true);
   }
@@ -133,6 +136,7 @@ export class ProductsPageComponent implements OnInit {
         price,
         returnablePackagingTypeId: tid !== '' ? tid : null,
         returnablePackagingUnitsPerQty: unitsPerSafe,
+        active: v.active,
       };
       this.data.update(payload).subscribe({
         next: (r: ProductMutationResponse) => finish(!r.ok ? this.mapMutationError(r) : null),
@@ -148,6 +152,7 @@ export class ProductsPageComponent implements OnInit {
           price,
           returnable_packaging_type_id: tid !== '' ? tid : null,
           returnable_packaging_units_per_qty: unitsPerSafe,
+          active: v.active,
         })
         .subscribe({
           next: (r: ProductMutationResponse) => finish(!r.ok ? this.mapMutationError(r) : null),

@@ -575,7 +575,7 @@
           <div class="orders-edit-line" [formGroup]="$any(line)">
             <select class="field__input" formControlName="productId">
               <option value="">{{ 'orders.pickProduct' | t }}</option>
-              @for (p of productsData.products(); track p.id) {
+              @for (p of productsSelectableForEditLine($any(line).get('productId')?.value); track p.id) {
                 <option [value]="p.id">{{ { unitCode: p.unitCode ?? '', name: p.unit } | unitName }} — {{ p.name }} ({{ p.sku }}) — {{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</option>
               }
             </select>

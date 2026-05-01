@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS b2b_products (
   price DECIMAL(12,2) NOT NULL,
   returnable_packaging_type_id INT NULL DEFAULT NULL,
   returnable_packaging_units_per_qty DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+  active TINYINT(1) NOT NULL DEFAULT 1,
   CONSTRAINT fk_b2b_product_unit FOREIGN KEY (unit_id) REFERENCES b2b_units (id) ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_b2b_product_returnable_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

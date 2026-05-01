@@ -224,6 +224,8 @@
   "products.col.name": "Ürün",
   "products.col.unit": "Birim",
   "products.col.price": "Fiyat",
+  "products.col.active": "Aktif",
+  "products.fieldActive": "Ürün siparişte seçilebilir (pasif yapılınca yeni satırda çıkmaz)",
   "products.col.packagingType": "İade ambalajı",
   "products.col.packagingPerQty": "Ambalaj / satış adedi",
   "products.packagingNone": "Yok",
