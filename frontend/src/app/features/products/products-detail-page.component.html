@@ -1,0 +1,178 @@
+<div class="detail-head">
+  <a class="detail-back" routerLink="/products">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M15 18l-6-6 6-6" />
+    </svg>
+    {{ 'products.backToList' | t }}
+  </a>
+  <h1 class="detail-title">
+    {{ (isNew() ? 'products.formTitleNew' : 'products.formTitleEdit') | t }}
+    @if (!isNew() && form.controls.name.value) {
+      <span class="detail-title__name">— {{ form.controls.name.value }}</span>
+    }
+  </h1>
+</div>
+
+@if (loading()) {
+  <p class="detail-state">{{ 'common.loading' | t }}</p>
+} @else if (notFound()) {
+  <div class="detail-card">
+    <p class="detail-state">{{ 'products.notFound' | t }}</p>
+    <a class="btn btn--secondary" routerLink="/products">{{ 'products.backToList' | t }}</a>
+  </div>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="submit()" class="detail-grid">
+    @if (formError(); as fe) {
+      <p class="form-error detail-grid__full">{{ errorText(fe) }}</p>
+    }
+
+    <!-- Sol: ürün bilgileri -->
+    <section class="detail-card">
+      <h2 class="detail-card__title">{{ 'products.sectionInfo' | t }}</h2>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.sku' | t }}</span>
+        <input class="field__input" type="text" formControlName="sku" autocomplete="off" />
+        @if (form.controls.sku.touched && form.controls.sku.invalid) {
+          <span class="field__hint">{{ 'products.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.name' | t }}</span>
+        <input class="field__input" type="text" formControlName="name" autocomplete="off" />
+        @if (form.controls.name.touched && form.controls.name.invalid) {
+          <span class="field__hint">{{ 'products.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.unit' | t }}</span>
+        <select class="field__input" formControlName="unitId">
+          <option value="">{{ 'products.pickUnit' | t }}</option>
+          @for (u of unitOptions(); track u.id) {
+            <option [value]="u.id">{{ { code: u.code, name: u.name } | unitName }} ({{ u.code }})</option>
+          }
+        </select>
+        @if (form.controls.unitId.touched && form.controls.unitId.invalid) {
+          <span class="field__hint">{{ 'products.required' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.price' | t }}</span>
+        <input class="field__input" type="number" formControlName="price" min="0" step="0.01" />
+        @if (form.controls.price.touched && form.controls.price.invalid) {
+          <span class="field__hint">{{ 'products.priceInvalid' | t }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.packagingType' | t }}</span>
+        <select class="field__input" formControlName="returnablePackagingTypeId">
+          <option value="">{{ 'products.packagingNone' | t }}</option>
+          @for (t of packagingTypeOptions(); track t.id) {
+            <option [value]="t.id">{{ t.name }} ({{ t.code }})</option>
+          }
+        </select>
+        <span class="field__hint field__hint--muted">{{ 'products.packagingHint' | t }}</span>
+      </label>
+
+      <label class="field">
+        <span class="field__label">{{ 'products.col.packagingPerQty' | t }}</span>
+        <input
+          class="field__input"
+          type="number"
+          formControlName="returnablePackagingUnitsPerQty"
+          min="0.001"
+          step="0.001"
+        />
+        @if (form.controls.returnablePackagingUnitsPerQty.touched && form.controls.returnablePackagingUnitsPerQty.invalid) {
+          <span class="field__hint">{{ 'products.packagingUnitsInvalid' | t }}</span>
+        }
+      </label>
+
+      <label class="field field--checkbox">
+        <input type="checkbox" formControlName="active" />
+        <span class="field__label">{{ 'products.fieldActive' | t }}</span>
+      </label>
+    </section>
+
+    <!-- Sağ: görünürlük -->
+    <section class="detail-card">
+      <h2 class="detail-card__title">{{ 'products.visibilityLabel' | t }}</h2>
+
+      <label class="visibility-radio">
+        <input
+          type="radio"
+          name="visibilityMode"
+          [checked]="visibleToAll()"
+          (change)="toggleVisibleToAll(true)"
+        />
+        <span>{{ 'products.visibilityAll' | t }}</span>
+      </label>
+      <label class="visibility-radio">
+        <input
+          type="radio"
+          name="visibilityMode"
+          [checked]="!visibleToAll()"
+          (change)="toggleVisibleToAll(false)"
+        />
+        <span>{{ 'products.visibilitySelected' | t }}</span>
+      </label>
+
+      @if (!visibleToAll()) {
+        <div class="visibility-toolbar">
+          <input
+            class="field__input visibility-search"
+            type="search"
+            [value]="dealerSearch()"
+            (input)="dealerSearch.set($any($event.target).value)"
+            [placeholder]="'products.dealerSearchPlaceholder' | t"
+          />
+          <div class="visibility-toolbar__actions">
+            <button type="button" class="btn btn--secondary btn--sm" (click)="selectAll()">
+              {{ 'products.selectAll' | t }}
+            </button>
+            <button type="button" class="btn btn--secondary btn--sm" (click)="deselectAll()">
+              {{ 'products.deselectAll' | t }}
+            </button>
+          </div>
+        </div>
+
+        <p class="visibility-count">
+          {{ 'products.selectedCount' | t }}: <strong>{{ selectedCount() }}</strong> / {{ totalDealers() }}
+        </p>
+
+        <div class="visibility-dealers">
+          @for (d of filteredDealers(); track d.id) {
+            <label class="visibility-dealer" [class.is-selected]="isDealerSelected(d.id)">
+              <input
+                type="checkbox"
+                [checked]="isDealerSelected(d.id)"
+                (change)="toggleDealer(d.id, $any($event.target).checked)"
+              />
+              <span class="visibility-dealer__name">{{ d.name }}</span>
+              @if (d.region || d.il) {
+                <span class="visibility-dealer__meta">{{ d.il || d.region }}</span>
+              }
+            </label>
+          } @empty {
+            <p class="field__hint field__hint--muted">{{ 'products.visibilityNoDealers' | t }}</p>
+          }
+        </div>
+      } @else {
+        <p class="field__hint field__hint--muted">{{ 'products.visibilityAllHint' | t }}</p>
+      }
+    </section>
+
+    <div class="detail-grid__full detail-footer">
+      <button type="button" class="btn btn--secondary" (click)="cancel()" [disabled]="saving()">
+        {{ 'products.cancel' | t }}
+      </button>
+      <button type="submit" class="btn btn--primary" [disabled]="saving()">
+        {{ (saving() ? 'products.saving' : 'common.save') | t }}
+      </button>
+    </div>
+  </form>
+}

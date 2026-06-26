@@ -77,6 +77,24 @@ export const routes: Routes = [
         data: { permissions: [Permission.productsView] },
       },
       {
+        path: 'products/new',
+        loadComponent: () =>
+          import('./features/products/products-detail-page.component').then(
+            (m) => m.ProductsDetailPageComponent,
+          ),
+        canActivate: [permissionGuard],
+        data: { permissions: [Permission.productsEdit] },
+      },
+      {
+        path: 'products/:id',
+        loadComponent: () =>
+          import('./features/products/products-detail-page.component').then(
+            (m) => m.ProductsDetailPageComponent,
+          ),
+        canActivate: [permissionGuard],
+        data: { permissions: [Permission.productsEdit] },
+      },
+      {
         path: 'units',
         loadComponent: () =>
           import('./features/units/units-page.component').then((m) => m.UnitsPageComponent),

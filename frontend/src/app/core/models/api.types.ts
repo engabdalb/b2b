@@ -56,6 +56,11 @@ export interface ProductDto {
   returnablePackagingUnitsPerQty?: number;
   returnablePackagingTypeCode?: string | null;
   returnablePackagingTypeName?: string | null;
+  /**
+   * Ürünün görünür olduğu bayi kimlikleri. Boş/tanımsız => tüm bayilere görünür (whitelist yok).
+   * Yalnızca admin/viewer yanıtlarında dolu gelir.
+   */
+  visibleDealerIds?: string[];
 }
 
 export interface ReturnablePackagingTypeDto {

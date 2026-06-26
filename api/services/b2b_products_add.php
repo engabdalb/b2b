@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/helper/b2b_auth.php';
+require_once __DIR__ . '/helper/b2b_product_visibility.php';
 require_method('POST');
 
 global $pdo;
@@ -40,6 +41,16 @@ $unitsPerRaw = $body['returnable_packaging_units_per_qty'] ?? $body['returnableP
 $unitsPer = round((float) $unitsPerRaw, 3);
 if ($unitsPer <= 0 || $unitsPer > 999999.999) {
     json_response(['ok' => false, 'error' => 'validation', 'message' => 'Ambalaj çarpanı 0 ile 999999 arasında olmalı.'], 400);
+}
+
+// Görünürlük: boş/yok => herkese görünür. Dolu => yalnızca listelenen bayilere.
+$visibleDealerIds = [];
+$visRaw = $body['visibleDealerIds'] ?? $body['visible_dealer_ids'] ?? null;
+if (is_array($visRaw)) {
+    $visibleDealerIds = array_values(array_unique(array_filter(
+        array_map(static fn($v) => (int) $v, $visRaw),
+        static fn($v) => $v > 0,
+    )));
 }
 
 $active = true;
@@ -93,6 +104,10 @@ try {
 
 $id = (int) $pdo->lastInsertId();
 
+if (count($visibleDealerIds) > 0) {
+    b2b_product_visibility_sync($pdo, $id, $visibleDealerIds);
+}
+
 $rtCode = null;
 $rtName = null;
 if ($returnableTypeId !== null) {
@@ -119,5 +134,6 @@ json_response([
         'returnablePackagingTypeCode' => $rtCode,
         'returnablePackagingTypeName' => $rtName,
         'active' => $active,
+        'visibleDealerIds' => array_map('strval', $visibleDealerIds),
     ],
 ]);

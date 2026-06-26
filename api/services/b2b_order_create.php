@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/helper/b2b_auth.php';
 require_once __DIR__ . '/helper/b2b_returnable_packaging.php';
 require_once __DIR__ . '/helper/b2b_dealer_unit_discounts.php';
+require_once __DIR__ . '/helper/b2b_product_visibility.php';
 require_method('POST');
 
 global $pdo;
@@ -101,6 +102,13 @@ foreach ($linesRaw as $idx => $row) {
 $productStmt = $pdo->prepare('SELECT id, sku, name, price, unit_id AS unitId, active FROM b2b_products WHERE id = :id LIMIT 1');
 $unitDiscountMap = b2b_dealer_unit_discount_map($pdo, $dealerId);
 
+// Bayi yalnızca kendisine görünür ürünleri sipariş edebilir (whitelist kaydı olmayan ürün herkese açıktır).
+// Süper admin tüm ürünleri herhangi bir bayi adına sipariş edebilir; bu yüzden yalnızca 'dealer' rolünde uygulanır.
+$enforceVisibility = $auth['role'] === 'dealer';
+$visibilityMap = $enforceVisibility
+    ? b2b_product_visibility_map($pdo, array_map(static fn($l) => (int) $l['product_id'], $normalized))
+    : [];
+
 try {
     $pdo->beginTransaction();
 
@@ -136,6 +144,14 @@ try {
         if ((int) ($p['active'] ?? 1) !== 1) {
             $pdo->rollBack();
             json_response(['ok' => false, 'error' => 'inactive_product', 'message' => 'Pasif ürün siparişe eklenemez.'], 400);
+        }
+        if ($enforceVisibility) {
+            $allowed = $visibilityMap[(int) $p['id']] ?? null;
+            // Whitelist kaydı varsa ve bayi listede değilse: erişim yok.
+            if ($allowed !== null && !in_array($dealerId, $allowed, true)) {
+                $pdo->rollBack();
+                json_response(['ok' => false, 'error' => 'product_not_visible', 'message' => 'Bu ürün hesabınıza tanımlı değil.'], 403);
+            }
         }
         $unitPrice = round((float) $p['price'], 2);
         $uid = (int) $p['unitId'];

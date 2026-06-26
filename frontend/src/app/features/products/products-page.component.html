@@ -1,11 +1,24 @@
 <app-page-header titleKey="products.title" subtitleKey="products.subtitle">
   <ng-container *appCan="perm.productsEdit">
-    <button type="button" class="btn btn--primary" (click)="openNew()">{{ 'products.new' | t }}</button>
+    <a class="btn btn--primary" routerLink="/products/new">{{ 'products.new' | t }}</a>
   </ng-container>
 </app-page-header>
 
+<div class="products-toolbar">
+  <input
+    class="products-search"
+    type="search"
+    [value]="search()"
+    (input)="search.set($any($event.target).value)"
+    [placeholder]="'products.searchPlaceholder' | t"
+  />
+  <span class="products-toolbar__count">
+    {{ filteredProducts().length }} / {{ data.products().length }}
+  </span>
+</div>
+
 <div class="products-table-wrap">
-  @if (data.products().length === 0) {
+  @if (filteredProducts().length === 0) {
     <p class="products-table__empty">{{ 'table.empty' | t }}</p>
   } @else {
     <div class="products-table-scroll">
@@ -23,10 +36,17 @@
           </tr>
         </thead>
         <tbody>
-          @for (p of data.products(); track p.id) {
+          @for (p of filteredProducts(); track p.id) {
             <tr>
               <td>{{ p.sku }}</td>
-              <td>{{ p.name }}</td>
+              <td>
+                {{ p.name }}
+                @if (p.visibleDealerIds && p.visibleDealerIds.length > 0) {
+                  <span class="products-table__visibility-badge" [title]="'products.visibilityRestrictedHint' | t">
+                    {{ 'products.visibilityRestricted' | t }} ({{ p.visibleDealerIds.length }})
+                  </span>
+                }
+              </td>
               <td>
                 {{ { code: p.unitCode ?? '', name: p.unit } | unitName }}
                 @if (p.unitCode) {
@@ -44,9 +64,9 @@
               <td>{{ p.price | number: '1.2-2' : i18n.numberLocale() }} ₺</td>
               <td>{{ (p.active !== false ? 'dealers.yes' : 'dealers.no') | t }}</td>
               <td *appCan="perm.productsEdit" class="products-table__actions">
-                <button type="button" class="btn btn--secondary btn--sm" (click)="openEdit(p)">
+                <a class="btn btn--secondary btn--sm" [routerLink]="['/products', p.id]">
                   {{ 'products.edit' | t }}
-                </button>
+                </a>
               </td>
             </tr>
           }
@@ -55,103 +75,3 @@
     </div>
   }
 </div>
-
-@if (formOpen()) {
-  <div class="modal-backdrop" role="presentation" (click)="closeForm()"></div>
-  <div class="modal-panel" role="dialog" aria-modal="true">
-    <div class="modal-panel__head">
-      <h2 class="modal-panel__title">
-        {{ (form.value.id ? 'products.formTitleEdit' : 'products.formTitleNew') | t }}
-      </h2>
-      <button type="button" class="icon-btn" (click)="closeForm()" [attr.aria-label]="'common.close' | t">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 6L6 18M6 6l12 12" />
-        </svg>
-      </button>
-    </div>
-
-    <form class="modal-panel__body" [formGroup]="form" (ngSubmit)="submit()">
-      @if (formError(); as fe) {
-        <p class="form-error">{{ errorText(fe) }}</p>
-      }
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.sku' | t }}</span>
-        <input class="field__input" type="text" formControlName="sku" autocomplete="off" />
-        @if (form.controls.sku.touched && form.controls.sku.invalid) {
-          <span class="field__hint">{{ 'products.required' | t }}</span>
-        }
-      </label>
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.name' | t }}</span>
-        <input class="field__input" type="text" formControlName="name" autocomplete="off" />
-        @if (form.controls.name.touched && form.controls.name.invalid) {
-          <span class="field__hint">{{ 'products.required' | t }}</span>
-        }
-      </label>
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.unit' | t }}</span>
-        <select class="field__input" formControlName="unitId">
-          <option value="">{{ 'products.pickUnit' | t }}</option>
-          @for (u of unitOptions(); track u.id) {
-            <option [value]="u.id">{{ { code: u.code, name: u.name } | unitName }} ({{ u.code }})</option>
-          }
-        </select>
-        @if (form.controls.unitId.touched && form.controls.unitId.invalid) {
-          <span class="field__hint">{{ 'products.required' | t }}</span>
-        }
-      </label>
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.price' | t }}</span>
-        <input class="field__input" type="number" formControlName="price" min="0" step="0.01" />
-        @if (form.controls.price.touched && form.controls.price.invalid) {
-          <span class="field__hint">{{ 'products.priceInvalid' | t }}</span>
-        }
-      </label>
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.packagingType' | t }}</span>
-        <select class="field__input" formControlName="returnablePackagingTypeId">
-          <option value="">{{ 'products.packagingNone' | t }}</option>
-          @for (t of packagingTypeOptions(); track t.id) {
-            <option [value]="t.id">{{ t.name }} ({{ t.code }})</option>
-          }
-        </select>
-        <span class="field__hint">{{ 'products.packagingHint' | t }}</span>
-      </label>
-
-      <label class="field">
-        <span class="field__label">{{ 'products.col.packagingPerQty' | t }}</span>
-        <input
-          class="field__input"
-          type="number"
-          formControlName="returnablePackagingUnitsPerQty"
-          min="0.001"
-          step="0.001"
-        />
-        @if (form.controls.returnablePackagingUnitsPerQty.touched && form.controls.returnablePackagingUnitsPerQty.invalid) {
-          <span class="field__hint">{{ 'products.packagingUnitsInvalid' | t }}</span>
-        }
-      </label>
-
-      <label class="field field--checkbox">
-        <input type="checkbox" formControlName="active" />
-        <span class="field__label">{{ 'products.fieldActive' | t }}</span>
-      </label>
-
-      <input type="hidden" formControlName="id" />
-
-      <div class="modal-panel__footer">
-        <button type="button" class="btn btn--secondary" (click)="closeForm()" [disabled]="saving()">
-          {{ 'products.cancel' | t }}
-        </button>
-        <button type="submit" class="btn btn--primary" [disabled]="saving()">
-          {{ (saving() ? 'products.saving' : 'common.save') | t }}
-        </button>
-      </div>
-    </form>
-  </div>
-}

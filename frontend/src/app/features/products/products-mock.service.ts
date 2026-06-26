@@ -75,6 +75,7 @@ export class ProductsMockService {
       active?: boolean;
       returnable_packaging_type_id?: string | null;
       returnable_packaging_units_per_qty?: number;
+      visibleDealerIds?: string[];
     },
   ): Observable<ProductMutationResponse> {
     if (!this.hasApi()) {
@@ -102,6 +103,7 @@ export class ProductsMockService {
           : null,
       returnable_packaging_units_per_qty: payload.returnablePackagingUnitsPerQty ?? 1,
       active: payload.active !== false,
+      visibleDealerIds: payload.visibleDealerIds ?? [],
     };
     if (!this.hasApi()) {
       return of({ ok: false, error: 'no_api', message: 'API adresi tanımlı değil.' });

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/helper/b2b_auth.php';
+require_once __DIR__ . '/helper/b2b_product_visibility.php';
 require_method('GET');
 
 global $pdo;
@@ -30,16 +31,31 @@ $sql = 'SELECT p.id, p.sku, p.name, p.unit_id AS unitId, u.code AS unitCode, u.n
      LEFT JOIN b2b_returnable_packaging_types rt ON rt.id = p.returnable_packaging_type_id';
 
 if ($auth['role'] === 'dealer') {
-    $sql .= ' WHERE p.active = 1';
+    // Aktif + bu bayiye görünür ürünler. Whitelist kaydı olmayan ürün herkese görünür.
+    $sql .= ' WHERE p.active = 1
+        AND (NOT EXISTS (SELECT 1 FROM b2b_product_dealer_visibility v WHERE v.product_id = p.id)
+             OR EXISTS (SELECT 1 FROM b2b_product_dealer_visibility v
+                        WHERE v.product_id = p.id AND v.dealer_id = :vdid))';
 }
 
 $sql .= ' ORDER BY p.name ASC';
 $stmt = $pdo->prepare($sql);
-$stmt->execute([':did' => $discountDealerId > 0 ? $discountDealerId : 0]);
+$execParams = [':did' => $discountDealerId > 0 ? $discountDealerId : 0];
+if ($auth['role'] === 'dealer') {
+    $execParams[':vdid'] = (int) ($auth['dealer_id'] ?? 0);
+}
+$stmt->execute($execParams);
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$items = array_map(static function (array $r): array {
+// Yöneticiye/izleyiciye her ürünün görünürlük whitelist'ini de döndür (düzenleme formu için).
+$visibilityMap = [];
+if (in_array($auth['role'], ['super_admin', 'viewer'], true)) {
+    $visibilityMap = b2b_product_visibility_map($pdo, array_map(static fn($r) => (int) $r['id'], $rows));
+}
+
+$items = array_map(static function (array $r) use ($visibilityMap): array {
     $tid = $r['returnablePackagingTypeId'];
+    $vis = $visibilityMap[(int) $r['id']] ?? [];
     $list = (float) $r['price'];
     $dpu = round((float) $r['dealerDiscountPerUnit'], 2);
     $eff = round(max(0, $list - $dpu), 2);
@@ -64,6 +80,8 @@ $items = array_map(static function (array $r): array {
         'returnablePackagingTypeName' => $r['returnablePackagingTypeName'] !== null && $r['returnablePackagingTypeName'] !== ''
             ? (string) $r['returnablePackagingTypeName']
             : null,
+        // Boş dizi => herkese görünür. Yalnızca admin/viewer için doldurulur.
+        'visibleDealerIds' => array_map('strval', $vis),
     ];
 }, $rows);
 

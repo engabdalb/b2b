@@ -54,6 +54,18 @@ CREATE TABLE IF NOT EXISTS b2b_products (
   CONSTRAINT fk_b2b_product_returnable_type FOREIGN KEY (returnable_packaging_type_id) REFERENCES b2b_returnable_packaging_types (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Ürün görünürlüğü: kayıt yoksa ürün herkese görünür; kayıt varsa yalnızca listelenen bayilere görünür (whitelist).
+-- Yalnızca katalog listesi ve sipariş ekleme iznini etkiler; borç/tutar/fatura kayıtlarına dokunmaz.
+CREATE TABLE IF NOT EXISTS b2b_product_dealer_visibility (
+  product_id INT NOT NULL,
+  dealer_id  INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (product_id, dealer_id),
+  KEY idx_pdv_dealer (dealer_id),
+  CONSTRAINT fk_pdv_product FOREIGN KEY (product_id) REFERENCES b2b_products (id) ON DELETE CASCADE,
+  CONSTRAINT fk_pdv_dealer  FOREIGN KEY (dealer_id)  REFERENCES b2b_dealers (id)  ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Bayi + birim türü (kg, tepsi, …): birim başına indirim (TRY). Ürün bu birimle satıldığında siparişte uygulanır.
 CREATE TABLE IF NOT EXISTS b2b_dealer_unit_discounts (
   dealer_id INT NOT NULL,
