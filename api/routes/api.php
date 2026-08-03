@@ -40,6 +40,7 @@ $routes = [
     'b2b_returnable_packaging_movement_post' => ['file' => 'b2b_returnable_packaging_movement_post.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'deposit.movement.create', 'audit_entity' => 'deposit'],
     'b2b_reports_overview_get' => ['file' => 'b2b_reports_overview_get.php', 'roles' => ['super_admin', 'viewer'], 'audit_enabled' => true, 'audit_action' => 'report.overview', 'audit_entity' => 'report'],
     'b2b_audit_logs_get' => ['file' => 'b2b_audit_logs_get.php', 'roles' => ['super_admin', 'viewer'], 'audit_enabled' => true, 'audit_action' => 'audit.list', 'audit_entity' => 'audit'],
+    'b2b_db_backup_get' => ['file' => 'b2b_db_backup_get.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'system.backup.download', 'audit_entity' => 'system'],
 ];
 
 if (!isset($routes[$service])) {

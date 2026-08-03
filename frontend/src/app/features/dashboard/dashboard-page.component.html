@@ -1,7 +1,4 @@
 <app-page-header titleKey="dashboard.title" subtitleKey="dashboard.subtitle">
-  <ng-container *appCan="perm.reportsExport">
-    <button type="button" class="btn btn--secondary">{{ 'common.export' | t }}</button>
-  </ng-container>
   <ng-container *appCan="perm.ordersCreate">
     <button type="button" class="btn btn--primary">{{ 'orders.new' | t }}</button>
   </ng-container>

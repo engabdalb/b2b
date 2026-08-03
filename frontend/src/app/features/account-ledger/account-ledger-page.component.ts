@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -19,6 +19,9 @@ import { downloadAccountLedgerXlsx } from './export-account-ledger-xlsx';
   imports: [PageHeaderComponent, TranslatePipe, DecimalPipe, FormsModule, RouterLink],
   templateUrl: './account-ledger-page.component.html',
   styleUrl: './account-ledger-page.component.scss',
+  host: {
+    '(document:pointerdown)': 'onDocumentPointerDown($event)',
+  },
 })
 export class AccountLedgerPageComponent implements OnInit {
   readonly data = inject(AccountLedgerDataService);
@@ -60,6 +63,11 @@ export class AccountLedgerPageComponent implements OnInit {
 
   readonly dealerSearchQuery = signal('');
 
+  /** Aramalı bayi seçici (combobox) açık mı ve klavyeyle gezilen satır. */
+  readonly dealerPickerOpen = signal(false);
+  readonly dealerActiveIndex = signal(0);
+  private readonly dealerPickerRef = viewChild<ElementRef<HTMLElement>>('dealerPicker');
+
   /** Liste + Excel: hareket `YYYY-MM-DD` (tarih kısmı) bu aralıkta mı */
   readonly filterDateFrom = signal('');
   readonly filterDateTo = signal('');
@@ -92,6 +100,45 @@ export class AccountLedgerPageComponent implements OnInit {
     });
   });
 
+  /**
+   * Seçilen tarih aralığındaki toplamlar.
+   * Satış = fatura borçları − fatura iptalleri.
+   * Satış + borçlandırma = satış + manuel borçlandırmalar.
+   * Tahsilat = tahsilat alacakları.
+   */
+  readonly periodTotals = computed(() => {
+    let sales = 0;
+    let charges = 0;
+    let collections = 0;
+    for (const row of this.filteredMovements()) {
+      if (row.kind === 'invoice') {
+        sales += row.debit;
+      } else if (row.kind === 'invoice_cancel') {
+        sales -= row.credit;
+      } else if (row.kind === 'adjustment') {
+        // Borçlandırma normalde borç tarafındadır; alacak yönlü düzeltme de desteklenir.
+        charges += row.debit - row.credit;
+      } else if (row.kind === 'payment') {
+        collections += row.credit;
+      }
+    }
+    return {
+      sales: Math.round(sales * 100) / 100,
+      salesWithCharges: Math.round((sales + charges) * 100) / 100,
+      collections: Math.round(collections * 100) / 100,
+    };
+  });
+
+  /** Toplamların hangi aralığa ait olduğunu gösteren etiket. */
+  readonly periodRangeText = computed(() => {
+    const from = this.filterDateFrom().trim();
+    const to = this.filterDateTo().trim();
+    if (from === '' && to === '') {
+      return this.i18n.translate('ledger.periodAll');
+    }
+    return `${from || '…'} – ${to || '…'}`;
+  });
+
   readonly dealersSorted = computed(() =>
     [...this.dealersData.dealers().filter((d) => d.active)].sort((a, b) =>
       a.name.localeCompare(b.name, 'tr'),
@@ -115,7 +162,8 @@ export class AccountLedgerPageComponent implements OnInit {
       if (this.isDealerUser()) {
         return;
       }
-      const list = this.dealersFiltered();
+      // İlk açılışta seçim yap; arama kutusundan bağımsız olmalı.
+      const list = this.dealersSorted();
       if (this.selectedDealerId() === '' && list.length > 0) {
         this.selectDealer(list[0].id);
       }
@@ -138,7 +186,98 @@ export class AccountLedgerPageComponent implements OnInit {
     this.filterDateFrom.set('');
     this.filterDateTo.set('');
     this.selectedDealerId.set(id);
+    this.closeDealerPicker();
     this.reloadMovements();
+  }
+
+  /** Input'a tıklanınca tüm liste görünsün diye arama sıfırlanır. */
+  openDealerPicker(): void {
+    if (this.isDealerUser() || this.dealerPickerOpen()) {
+      return;
+    }
+    this.dealerSearchQuery.set('');
+    this.dealerActiveIndex.set(0);
+    this.dealerPickerOpen.set(true);
+  }
+
+  closeDealerPicker(): void {
+    if (!this.dealerPickerOpen()) {
+      return;
+    }
+    this.dealerPickerOpen.set(false);
+    this.dealerSearchQuery.set('');
+    this.dealerActiveIndex.set(0);
+  }
+
+  toggleDealerPicker(): void {
+    if (this.dealerPickerOpen()) {
+      this.closeDealerPicker();
+    } else {
+      this.openDealerPicker();
+    }
+  }
+
+  onDealerSearchInput(value: string): void {
+    this.dealerPickerOpen.set(true);
+    this.dealerSearchQuery.set(value);
+    this.dealerActiveIndex.set(0);
+  }
+
+  onDealerKeydown(event: KeyboardEvent): void {
+    const list = this.dealersFiltered();
+    switch (event.key) {
+      case 'ArrowDown':
+        event.preventDefault();
+        if (!this.dealerPickerOpen()) {
+          this.openDealerPicker();
+          return;
+        }
+        if (list.length > 0) {
+          this.dealerActiveIndex.update((i) => (i + 1) % list.length);
+        }
+        return;
+      case 'ArrowUp':
+        event.preventDefault();
+        if (list.length > 0) {
+          this.dealerActiveIndex.update((i) => (i - 1 + list.length) % list.length);
+        }
+        return;
+      case 'Enter': {
+        if (!this.dealerPickerOpen()) {
+          return;
+        }
+        event.preventDefault();
+        const target = list[this.dealerActiveIndex()];
+        if (target) {
+          this.selectDealer(target.id);
+        }
+        return;
+      }
+      case 'Escape':
+        if (this.dealerPickerOpen()) {
+          event.preventDefault();
+          this.closeDealerPicker();
+        }
+        return;
+      case 'Tab':
+        this.closeDealerPicker();
+        return;
+      default:
+        return;
+    }
+  }
+
+  /** Seçici dışına tıklanınca kapat (seçenek tıklaması hariç). */
+  onDocumentPointerDown(event: Event): void {
+    if (!this.dealerPickerOpen()) {
+      return;
+    }
+    const host = this.dealerPickerRef()?.nativeElement;
+    const target = event.target;
+    if (host && target instanceof Node && host.contains(target)) {
+      return;
+    }
+    this.closeDealerPicker();
   }
 
   reloadMovements(): void {

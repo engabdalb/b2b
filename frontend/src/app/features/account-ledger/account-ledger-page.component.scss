@@ -17,35 +17,7 @@
 }
 
 .ledger-layout {
-  display: grid;
-  grid-template-columns: minmax(220px, 280px) 1fr;
-  gap: 1.25rem;
-  align-items: start;
-}
-
-@media (max-width: 900px) {
-  .ledger-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.ledger-sidebar {
-  position: sticky;
-  top: 0.75rem;
-  max-height: calc(100vh - 6rem);
-  overflow: auto;
-  padding: 1rem 1.05rem;
-  background: var(--bg-card);
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-sm);
-}
-
-.ledger-sidebar__title {
-  margin: 0 0 0.75rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
+  display: block;
 }
 
 .visually-hidden {
@@ -60,58 +32,111 @@
   border: 0;
 }
 
-.ledger-dealer-search {
+/* Aramalı bayi seçici (combobox) */
+.ledger-picker {
+  position: relative;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.ledger-picker__label {
   display: block;
-  margin: 0 0 0.85rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 
-.ledger-dealer-search__input {
-  margin: 0;
-}
-
-.ledger-dealer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.ledger-picker__control {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  align-items: center;
 }
 
-.ledger-dealer-list__btn {
+.ledger-picker__input {
+  padding-right: 2.25rem;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.ledger-picker__toggle {
+  position: absolute;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+
+.ledger-picker__toggle--open {
+  transform: rotate(180deg);
+}
+
+.ledger-picker__list {
+  position: absolute;
+  z-index: 30;
+  left: 1rem;
+  right: 1rem;
+  top: calc(100% - 0.5rem);
+  max-height: 18rem;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md, 0 10px 25px rgb(15 23 42 / 15%));
+}
+
+.ledger-picker__opt {
   width: 100%;
   text-align: left;
-  padding: 0.55rem 0.65rem;
+  padding: 0.5rem 0.6rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--bg);
+  border: 0;
+  background: transparent;
   color: var(--text);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
 }
 
-.ledger-dealer-list__btn:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
-}
-
-.ledger-dealer-list__btn--active {
-  border-color: var(--accent);
+.ledger-picker__opt--active {
   background: color-mix(in srgb, var(--accent) 10%, var(--bg-card));
-  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
-.ledger-dealer-list__name {
+.ledger-picker__opt--selected {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.ledger-picker__opt-name {
   display: block;
   font-weight: 600;
   font-size: 0.9rem;
 }
 
-.ledger-dealer-list__meta {
+.ledger-picker__opt-meta {
   display: block;
   font-size: 0.78rem;
   color: var(--text-secondary);
   margin-top: 0.15rem;
+}
+
+.ledger-picker__empty {
+  padding: 0.65rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
 }
 
 .ledger-main {
@@ -167,6 +192,74 @@
 
 .ledger-summary__value--danger {
   color: var(--danger);
+}
+
+.ledger-period {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+
+.ledger-period__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
+.ledger-period__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ledger-period__range {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-period__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2.5rem;
+  margin-top: 0.75rem;
+}
+
+.ledger-period__item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ledger-period__label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.ledger-period__value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-period__value--sales {
+  color: var(--danger);
+}
+
+.ledger-period__value--collections {
+  color: var(--success, #16a34a);
+}
+
+.ledger-period__hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .ledger-export-bar {

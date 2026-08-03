@@ -16,3 +16,19 @@
   </label>
   <p class="hint">{{ 'settings.placeholder' | t }}</p>
 </div>
+
+<div class="settings-card settings-card--backup" *appCan="perm.settingsEdit">
+  <h2 class="settings-card__title">{{ 'settings.backupTitle' | t }}</h2>
+  <p class="hint hint--tight">{{ 'settings.backupHint' | t }}</p>
+  <button
+    type="button"
+    class="btn btn--secondary"
+    [disabled]="backupLoading()"
+    (click)="downloadBackup()"
+  >
+    {{ (backupLoading() ? 'settings.backupPreparing' : 'settings.backupDownload') | t }}
+  </button>
+  @if (backupError()) {
+    <p class="settings-card__error" role="alert">{{ backupError() }}</p>
+  }
+</div>

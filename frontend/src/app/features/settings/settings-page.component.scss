@@ -38,3 +38,24 @@
   font-size: 0.88rem;
   color: var(--text-muted);
 }
+
+.settings-card--backup {
+  margin-top: 1rem;
+}
+
+.settings-card__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.hint--tight {
+  margin: 0.35rem 0 0.9rem;
+}
+
+.settings-card__error {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}

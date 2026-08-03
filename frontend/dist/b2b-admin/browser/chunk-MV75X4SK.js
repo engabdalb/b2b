@@ -1,0 +1,1 @@
+import{b as a}from"./chunk-XDGSL4OD.js";import{La as o,T as t}from"./chunk-L3KLTTQJ.js";var m=class r{i18n=t(a);transform(e){this.i18n.locale();let i=(e?.code??e?.unitCode??"").trim(),n=e?.name??"";return i?this.i18n.displayUnitName(i,n):n.trim()?n:"\u2014"}static \u0275fac=function(i){return new(i||r)};static \u0275pipe=o({name:"unitName",type:r,pure:!1})};export{m as a};

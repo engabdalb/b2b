@@ -5,39 +5,69 @@
 </app-page-header>
 
 <div class="ledger-layout">
-  @if (!isDealerUser()) {
-    <aside class="ledger-sidebar" [attr.aria-label]="'ledger.dealerList' | t">
-      <h2 class="ledger-sidebar__title">{{ 'ledger.dealerList' | t }}</h2>
-      <label class="ledger-dealer-search">
-        <span class="visually-hidden">{{ 'ledger.dealerSearch' | t }}</span>
-        <input
-          type="search"
-          class="field__input ledger-dealer-search__input"
-          [attr.placeholder]="'ledger.dealerSearchPlaceholder' | t"
-          [value]="dealerSearchQuery()"
-          (input)="dealerSearchQuery.set($any($event.target).value)"
-          autocomplete="off"
-        />
-      </label>
-      <ul class="ledger-dealer-list">
-        @for (d of dealersFiltered(); track d.id) {
-          <li>
-            <button
-              type="button"
-              class="ledger-dealer-list__btn"
-              [class.ledger-dealer-list__btn--active]="selectedDealerId() === d.id"
-              (click)="selectDealer(d.id)"
-            >
-              <span class="ledger-dealer-list__name">{{ d.name }}</span>
-              <span class="ledger-dealer-list__meta">{{ d.region }}</span>
-            </button>
-          </li>
-        }
-      </ul>
-    </aside>
-  }
-
   <section class="ledger-main">
+    @if (!isDealerUser()) {
+      <div class="ledger-picker" #dealerPicker>
+        <label class="ledger-picker__label" for="ledger-dealer-input">{{ 'ledger.dealerList' | t }}</label>
+        <div class="ledger-picker__control">
+          <input
+            id="ledger-dealer-input"
+            type="text"
+            class="field__input ledger-picker__input"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-controls="ledger-dealer-listbox"
+            [attr.aria-expanded]="dealerPickerOpen()"
+            [attr.aria-activedescendant]="dealerPickerOpen() ? 'ledger-dealer-opt-' + dealerActiveIndex() : null"
+            [attr.placeholder]="'ledger.dealerSearchPlaceholder' | t"
+            [attr.aria-label]="'ledger.dealerSearch' | t"
+            [value]="dealerPickerOpen() ? dealerSearchQuery() : selectedDealerName()"
+            (focus)="openDealerPicker()"
+            (click)="openDealerPicker()"
+            (input)="onDealerSearchInput($any($event.target).value)"
+            (keydown)="onDealerKeydown($event)"
+            autocomplete="off"
+          />
+          <button
+            type="button"
+            class="ledger-picker__toggle"
+            [class.ledger-picker__toggle--open]="dealerPickerOpen()"
+            (click)="toggleDealerPicker()"
+            tabindex="-1"
+            [attr.aria-label]="'ledger.dealerList' | t"
+          >
+            ▼
+          </button>
+        </div>
+        @if (dealerPickerOpen()) {
+          <ul class="ledger-picker__list" id="ledger-dealer-listbox" role="listbox">
+            @if (dealersFiltered().length === 0) {
+              <li class="ledger-picker__empty">{{ 'ledger.dealerSearchEmpty' | t }}</li>
+            } @else {
+              @for (d of dealersFiltered(); track d.id; let i = $index) {
+                <li>
+                  <button
+                    type="button"
+                    role="option"
+                    [id]="'ledger-dealer-opt-' + i"
+                    [attr.aria-selected]="selectedDealerId() === d.id"
+                    class="ledger-picker__opt"
+                    [class.ledger-picker__opt--active]="dealerActiveIndex() === i"
+                    [class.ledger-picker__opt--selected]="selectedDealerId() === d.id"
+                    (mouseenter)="dealerActiveIndex.set(i)"
+                    (click)="selectDealer(d.id)"
+                  >
+                    <span class="ledger-picker__opt-name">{{ d.name }}</span>
+                    <span class="ledger-picker__opt-meta">{{ d.region }}</span>
+                  </button>
+                </li>
+              }
+            }
+          </ul>
+        }
+      </div>
+    }
+
     @if (!selectedDealerId()) {
       <p class="ledger-hint">{{ 'ledger.selectDealerHint' | t }}</p>
     } @else {
@@ -222,6 +252,46 @@
           }
         </div>
       }
+
+      <div class="ledger-period">
+        <div class="ledger-period__head">
+          <span class="ledger-period__title">{{ 'ledger.periodTotalsTitle' | t }}</span>
+          <span class="ledger-period__range">{{ periodRangeText() }}</span>
+        </div>
+        <div class="ledger-period__row">
+          <div class="ledger-period__item">
+            <span class="ledger-period__label">{{ 'ledger.periodSales' | t }}</span>
+            @if (loading()) {
+              <span class="ledger-period__value">…</span>
+            } @else {
+              <span class="ledger-period__value ledger-period__value--sales">
+                {{ periodTotals().sales | number: '1.2-2' }} ₺
+              </span>
+            }
+          </div>
+          <div class="ledger-period__item">
+            <span class="ledger-period__label">{{ 'ledger.periodSalesWithCharges' | t }}</span>
+            @if (loading()) {
+              <span class="ledger-period__value">…</span>
+            } @else {
+              <span class="ledger-period__value ledger-period__value--sales">
+                {{ periodTotals().salesWithCharges | number: '1.2-2' }} ₺
+              </span>
+            }
+          </div>
+          <div class="ledger-period__item">
+            <span class="ledger-period__label">{{ 'ledger.periodCollections' | t }}</span>
+            @if (loading()) {
+              <span class="ledger-period__value">…</span>
+            } @else {
+              <span class="ledger-period__value ledger-period__value--collections">
+                {{ periodTotals().collections | number: '1.2-2' }} ₺
+              </span>
+            }
+          </div>
+        </div>
+        <p class="ledger-period__hint">{{ 'ledger.periodHint' | t }}</p>
+      </div>
 
       <div class="ledger-table-wrap">
         <table class="ledger-table">
