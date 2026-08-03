@@ -13,6 +13,9 @@ declare(strict_types=1);
 
 require_method('GET');
 
+/** Veri okuma parça boyutu (satır). Bellek ile ağ gecikmesi arasındaki denge. */
+const B2B_BACKUP_CHUNK_ROWS = 1000;
+
 /** @var PDO $pdo */
 global $pdo;
 
@@ -51,17 +54,38 @@ function b2b_backup_strip_definer(string $sql): string
     return (string) preg_replace('/\sDEFINER\s*=\s*`(?:[^`]|``)*`@`(?:[^`]|``)*`/i', '', $sql);
 }
 
+/**
+ * Çıktıyı yazar. Gzip açıksa akış halinde sıkıştırır.
+ * $final yalnızca bir kez true gelmelidir (gzip akışını kapatır).
+ */
+function b2b_backup_write(string $chunk, bool $final): void
+{
+    $state = &$GLOBALS['b2b_backup_gzip'];
+    if (is_array($state) && $state['ctx'] !== null) {
+        if ($state['done'] === true) {
+            return; // Gzip akışı kapandı; sonrasına çıktı eklenemez.
+        }
+        $out = deflate_add($state['ctx'], $chunk, $final ? ZLIB_FINISH : ZLIB_SYNC_FLUSH);
+        if ($final) {
+            $state['done'] = true;
+        }
+        if ($out !== false && $out !== '') {
+            echo $out;
+        }
+    } elseif ($chunk !== '') {
+        echo $chunk;
+    }
+    flush();
+}
+
 /** Çıktıyı tamponlar ve belli boyutu aşınca akıtır. */
 function b2b_backup_emit(string $sql, bool $flushNow = false): void
 {
     static $buffer = '';
     $buffer .= $sql;
     if ($flushNow || strlen($buffer) >= 262144) {
-        if ($buffer !== '') {
-            echo $buffer;
-            $buffer = '';
-        }
-        flush();
+        b2b_backup_write($buffer, $flushNow);
+        $buffer = '';
     }
 }
 
@@ -82,6 +106,7 @@ $insertColumns = [];
 $createView = [];
 $createTrigger = [];
 $createRoutine = [];
+$primaryKey = [];
 
 try {
     $rows = $pdo->query('SHOW FULL TABLES')->fetchAll(PDO::FETCH_NUM);
@@ -105,6 +130,18 @@ try {
     $colStmt->execute([':db' => $dbName, ':generated' => '%GENERATED%']);
     foreach ($colStmt->fetchAll(PDO::FETCH_NUM) as $row) {
         $insertColumns[(string) $row[0]][] = (string) $row[1];
+    }
+
+    // Tek kolonlu birincil anahtar varsa veri parça parça (keyset) okunur.
+    $pkStmt = $pdo->prepare(
+        'SELECT TABLE_NAME, COLUMN_NAME
+           FROM information_schema.STATISTICS
+          WHERE TABLE_SCHEMA = :db AND INDEX_NAME = :pk
+          ORDER BY TABLE_NAME, SEQ_IN_INDEX',
+    );
+    $pkStmt->execute([':db' => $dbName, ':pk' => 'PRIMARY']);
+    foreach ($pkStmt->fetchAll(PDO::FETCH_NUM) as $row) {
+        $primaryKey[(string) $row[0]][] = (string) $row[1];
     }
 
     foreach ($tables as $table) {
@@ -177,6 +214,7 @@ while (ob_get_level() > 0) {
 }
 @ini_set('zlib.output_compression', '0');
 @set_time_limit(0);
+@ini_set('max_execution_time', '0');
 
 header('Content-Type: application/sql; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $fileName . '"');
@@ -185,9 +223,24 @@ header('Cache-Control: no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
 header('X-Content-Type-Options: nosniff');
 header('Access-Control-Expose-Headers: Content-Disposition');
+header('Vary: Accept-Encoding');
+
+/*
+ * Gzip: 25 MB'lık döküm ~3 MB'a iner. Transfer süresi kısaldığı için
+ * yavaş bağlantılarda zaman aşımına takılma riski pratikte ortadan kalkar.
+ * Tarayıcı aktarım katmanında açar; kullanıcı yine düz .sql dosyası indirir.
+ */
+$GLOBALS['b2b_backup_gzip'] = ['ctx' => null, 'done' => false];
+$acceptEncoding = strtolower((string) ($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''));
+if (function_exists('deflate_init') && str_contains($acceptEncoding, 'gzip')) {
+    $deflateCtx = deflate_init(ZLIB_ENCODING_GZIP, ['level' => 6]);
+    if ($deflateCtx !== false) {
+        $GLOBALS['b2b_backup_gzip']['ctx'] = $deflateCtx;
+        header('Content-Encoding: gzip');
+    }
+}
 
 $startedTransaction = false;
-$buffered = true;
 
 try {
     /*
@@ -196,6 +249,13 @@ try {
      * okumalıyız; aksi halde geri yüklemede saat kayması olur.
      */
     $pdo->exec("SET time_zone = '+00:00'");
+
+    // Yavaş istemcilerde bağlantının düşmemesi için (parçalı okuma ile birlikte emniyet payı).
+    try {
+        $pdo->exec('SET SESSION net_write_timeout = 600, SESSION net_read_timeout = 600');
+    } catch (Throwable $e) {
+        error_log('b2b_db_backup_get net timeout ayarlanamadı: ' . $e->getMessage());
+    }
 
     // Tutarlı anlık görüntü: yalnızca okuma yapar, veriyi değiştirmez.
     $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
@@ -213,9 +273,6 @@ try {
     b2b_backup_emit("SET UNIQUE_CHECKS = 0;\n");
 
     // Görünümler tablolara bağımlı olabilir; önce tüm tablo yapısı + verisi yazılır.
-    $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, false);
-    $buffered = false;
-
     foreach ($tables as $table) {
         $quoted = b2b_backup_ident($table);
         b2b_backup_emit("\n-- ----------------------------------------------------------\n");
@@ -233,31 +290,80 @@ try {
         $prefix = 'INSERT INTO ' . $quoted . ' (' . $columnSql . ") VALUES\n";
         b2b_backup_emit('-- Tablo verisi: ' . $table . "\n");
 
-        $stmt = $pdo->query('SELECT ' . $columnSql . ' FROM ' . $quoted);
+        /*
+         * Veri, açık bir sonuç kümesi TUTULMADAN parça parça okunur: her turda
+         * satırlar belleğe alınıp imleç hemen kapatılır, sonra çıktı yazılır.
+         * Böylece ağ yavaş olduğunda MySQL bağlantısı beklemede kalmaz ve
+         * net_write_timeout nedeniyle döküm yarıda kesilmez.
+         */
+        $pkCols = $primaryKey[$table] ?? [];
+        $keysetCol = count($pkCols) === 1 && in_array($pkCols[0], $columns, true) ? $pkCols[0] : null;
+        $keysetIndex = $keysetCol !== null ? (int) array_search($keysetCol, $columns, true) : -1;
+
         $chunk = '';
         $rowCount = 0;
-        while (($row = $stmt->fetch(PDO::FETCH_NUM)) !== false) {
-            $values = [];
-            foreach ($row as $value) {
-                $values[] = b2b_backup_value($pdo, $value);
+        $lastKey = null;
+        $offset = 0;
+
+        while (true) {
+            if ($keysetCol !== null) {
+                $sql = 'SELECT ' . $columnSql . ' FROM ' . $quoted;
+                if ($lastKey !== null) {
+                    $sql .= ' WHERE ' . b2b_backup_ident($keysetCol) . ' > :lastKey';
+                }
+                $sql .= ' ORDER BY ' . b2b_backup_ident($keysetCol) . ' ASC LIMIT ' . B2B_BACKUP_CHUNK_ROWS;
+                $stmt = $pdo->prepare($sql);
+                if ($lastKey !== null) {
+                    $stmt->bindValue(':lastKey', $lastKey);
+                }
+                $stmt->execute();
+            } else {
+                // Tek kolonlu birincil anahtar yok: anlık görüntü içinde OFFSET ile ilerlenir.
+                $stmt = $pdo->query(
+                    'SELECT ' . $columnSql . ' FROM ' . $quoted
+                    . ' LIMIT ' . B2B_BACKUP_CHUNK_ROWS . ' OFFSET ' . $offset,
+                );
             }
-            $line = '(' . implode(',', $values) . ')';
-            $chunk .= $chunk === '' ? $prefix . $line : ",\n" . $line;
-            $rowCount++;
-            if (strlen($chunk) >= 500000) {
-                b2b_backup_emit($chunk . ";\n");
-                $chunk = '';
+
+            $batch = $stmt->fetchAll(PDO::FETCH_NUM);
+            $stmt->closeCursor();
+            unset($stmt);
+
+            if ($batch === []) {
+                break;
+            }
+
+            foreach ($batch as $row) {
+                $values = [];
+                foreach ($row as $value) {
+                    $values[] = b2b_backup_value($pdo, $value);
+                }
+                $line = '(' . implode(',', $values) . ')';
+                $chunk .= $chunk === '' ? $prefix . $line : ",\n" . $line;
+                $rowCount++;
+                if (strlen($chunk) >= 500000) {
+                    b2b_backup_emit($chunk . ";\n");
+                    $chunk = '';
+                }
+            }
+
+            if ($keysetCol !== null) {
+                $lastKey = $batch[count($batch) - 1][$keysetIndex];
+            } else {
+                $offset += count($batch);
+            }
+            $done = count($batch) < B2B_BACKUP_CHUNK_ROWS;
+            unset($batch);
+            if ($done) {
+                break;
             }
         }
-        $stmt->closeCursor();
+
         if ($chunk !== '') {
             b2b_backup_emit($chunk . ";\n");
         }
         b2b_backup_emit('-- ' . $table . ': ' . $rowCount . " satır\n");
     }
-
-    $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
-    $buffered = true;
 
     foreach ($viewNames as $view) {
         if (($createView[$view] ?? '') === '') {
@@ -282,21 +388,16 @@ try {
 
     b2b_backup_emit("\nSET FOREIGN_KEY_CHECKS = 1;\n");
     b2b_backup_emit("SET UNIQUE_CHECKS = 1;\n");
-    b2b_backup_emit('-- Döküm tamamlandı: ' . date('Y-m-d H:i:s') . "\n", true);
 
+    // Tamamlandı işareti son satır olmalı; bu yüzden COMMIT ondan önce yapılır.
     $pdo->exec('COMMIT');
     $startedTransaction = false;
+
+    b2b_backup_emit('-- Döküm tamamlandı: ' . date('Y-m-d H:i:s') . "\n", true);
 } catch (Throwable $e) {
     error_log('b2b_db_backup_get döküm hatası: ' . $e->getMessage());
     // Başlıklar gönderildiği için JSON dönemeyiz; dosya sonuna açık bir hata notu bırakılır.
     b2b_backup_emit("\n-- HATA: Döküm tamamlanmadı: " . str_replace(["\r", "\n"], ' ', $e->getMessage()) . "\n", true);
-    if (!$buffered) {
-        try {
-            $pdo->setAttribute(PDO::MYSQL_ATTR_USE_BUFFERED_QUERY, true);
-        } catch (Throwable) {
-            // yoksay
-        }
-    }
     if ($startedTransaction) {
         try {
             $pdo->exec('ROLLBACK');

@@ -88,6 +88,10 @@ export class SettingsPageComponent {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    /*
+     * URL'yi hemen iptal ETME: tarayıcı blob'u okumayı bitirmeden iptal edilirse
+     * indirme rastgele bir boyutta yarıda kesilir. Okuma bittikten sonra bırakılır.
+     */
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 }
