@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { DecimalPipe } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -25,6 +25,12 @@ import { PageHeaderComponent } from '../../shared/components/page-header/page-he
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { UnitNamePipe } from '../../shared/pipes/unit-name.pipe';
 import { CanDirective } from '../../shared/directives/can.directive';
+import { DATE_FILTER_KEYS, initialDateRange, storeDateRange } from '../../shared/utils/date-filter-persistence';
+import {
+  OrderWindowConfig,
+  SettingsDataService,
+  evaluateOrderWindow,
+} from '../settings/settings-data.service';
 
 /** Sepet satırı miktarı: tam sayı ve ≥ 1 */
 function cartLineIntegerQtyValidator(c: AbstractControl): ValidationErrors | null {
@@ -84,8 +90,23 @@ export class OrdersPageComponent implements OnInit {
   private readonly permissions = inject(PermissionsService);
   private readonly fb = inject(FormBuilder);
   protected readonly i18n = inject(I18nService);
+  private readonly settingsData = inject(SettingsDataService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly isSuperAdmin = computed(() => this.auth.user().role === 'super_admin');
+
+  /** Sipariş saat penceresi (yalnızca bayiler için uygulanır; admin muaf). */
+  private readonly orderWindowCfg = signal<OrderWindowConfig | null>(null);
+  /** Dakikalık tik: sayfa açıkken pencere durumunu canlı tutar. */
+  private readonly orderWindowTick = signal(0);
+  readonly orderWindowStatus = computed(() => {
+    this.orderWindowTick();
+    return evaluateOrderWindow(this.orderWindowCfg());
+  });
+  /** Bayi için pencere kapalıysa false; admin/izleyici her zaman true. */
+  readonly orderWindowOpen = computed(
+    () => this.auth.user().role !== 'dealer' || this.orderWindowStatus().open,
+  );
 
   /** Bayi seçim filtresi: süper admin ve izleyici (API bayi rolünde zaten tek bayi). */
   readonly needsDealerFilter = computed(() => {
@@ -264,7 +285,27 @@ export class OrdersPageComponent implements OnInit {
       this.tryOpenRequestedOrder();
     });
 
-    this.ordersData.load();
+    if (this.auth.user().role === 'dealer') {
+      this.settingsData.load().subscribe({
+        next: (r) => this.orderWindowCfg.set(r.ok ? (r.order_window ?? null) : null),
+        error: () => this.orderWindowCfg.set(null), // okunamazsa kısıt yok say (sunucu zaten denetler)
+      });
+      const tickId = setInterval(() => this.orderWindowTick.update((n) => n + 1), 30_000);
+      this.destroyRef.onDestroy(() => clearInterval(tickId));
+    }
+
+    const orderFocus = String(this.route.snapshot.queryParamMap.get('orderId') ?? '').trim();
+    if (orderFocus !== '') {
+      // Panelden gelen sipariş bağlantısı: eski tarihli sipariş de bulunabilsin
+      // diye bu girişte tarih filtresi uygulanmaz (kayıtlı tercih silinmez).
+      this.ordersData.load(null);
+    } else {
+      // Kayıtlı tarih aralığı varsa onu, yoksa varsayılanı (dün + bugün) uygula.
+      const range = initialDateRange(DATE_FILTER_KEYS.orders, 1);
+      this.filterDateFrom.set(range.from);
+      this.filterDateTo.set(range.to);
+      this.applyFilters();
+    }
     if (!this.isSuperAdmin()) {
       this.productsData.load(this.auth.user().dealerId ?? null).subscribe();
     }
@@ -305,6 +346,7 @@ export class OrdersPageComponent implements OnInit {
   }
 
   applyFilters(): void {
+    storeDateRange(DATE_FILTER_KEYS.orders, this.filterDateFrom(), this.filterDateTo(), 1);
     this.ordersData.load({
       dateFrom: this.filterDateFrom().trim() || undefined,
       dateTo: this.filterDateTo().trim() || undefined,
@@ -322,6 +364,8 @@ export class OrdersPageComponent implements OnInit {
     this.filterStatus.set('');
     this.filterInvoice.set('');
     this.filterSearch.set('');
+    // Kayıt silinir: bir sonraki girişte varsayılan aralık (dün + bugün) döner.
+    storeDateRange(DATE_FILTER_KEYS.orders, '', '');
     this.ordersData.load(null);
   }
 
@@ -720,6 +764,11 @@ export class OrdersPageComponent implements OnInit {
   }
 
   submitNew(): void {
+    if (!this.orderWindowOpen()) {
+      // Çifte emniyet: asıl ret sunucuda (b2b_order_create) uygulanır.
+      this.formError.set('orders.windowClosedSubmit');
+      return;
+    }
     if (this.newOrderForm.invalid) {
       this.newOrderForm.markAllAsTouched();
       return;

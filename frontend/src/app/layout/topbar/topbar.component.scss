@@ -79,6 +79,42 @@
   border: 2px solid var(--bg-card);
 }
 
+/* Yedek alma kısayolu: Ayarlar'daki yedek kartına yönlendirir. */
+.topbar__backup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
+  margin-right: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.topbar__backup:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-card));
+}
+
+@media (max-width: 600px) {
+  .topbar__backup-label {
+    display: none;
+  }
+
+  .topbar__backup {
+    padding: 0 8px;
+  }
+}
+
 .topbar__locale {
   display: flex;
   align-items: center;

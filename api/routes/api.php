@@ -41,6 +41,12 @@ $routes = [
     'b2b_reports_overview_get' => ['file' => 'b2b_reports_overview_get.php', 'roles' => ['super_admin', 'viewer'], 'audit_enabled' => true, 'audit_action' => 'report.overview', 'audit_entity' => 'report'],
     'b2b_audit_logs_get' => ['file' => 'b2b_audit_logs_get.php', 'roles' => ['super_admin', 'viewer'], 'audit_enabled' => true, 'audit_action' => 'audit.list', 'audit_entity' => 'audit'],
     'b2b_db_backup_get' => ['file' => 'b2b_db_backup_get.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'system.backup.download', 'audit_entity' => 'system'],
+    // İki aşamalı yedek: önce sunucuda sıkıştırılmış dosya üretilir, sonra indirilir (indirme sonunda silinir).
+    'b2b_db_backup_prepare' => ['file' => 'b2b_db_backup_prepare.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'system.backup.prepare', 'audit_entity' => 'system'],
+    'b2b_db_backup_download' => ['file' => 'b2b_db_backup_download.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'system.backup.download', 'audit_entity' => 'system'],
+    // Ayar okuma her role açık (bayi sipariş ekranında pencereyi görür); log şişmemesi için audit kapalı.
+    'b2b_settings_get' => ['file' => 'b2b_settings_get.php', 'roles' => ['super_admin', 'dealer', 'viewer'], 'audit_enabled' => false],
+    'b2b_settings_save' => ['file' => 'b2b_settings_save.php', 'roles' => ['super_admin'], 'audit_enabled' => true, 'audit_action' => 'settings.save', 'audit_entity' => 'settings'],
 ];
 
 if (!isset($routes[$service])) {

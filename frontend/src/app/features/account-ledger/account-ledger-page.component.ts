@@ -12,6 +12,7 @@ import { catchError, finalize, of } from 'rxjs';
 import { HttpErrorResponse } from '@angular/common/http';
 import { I18nService } from '../../core/services/i18n.service';
 import { downloadAccountLedgerXlsx } from './export-account-ledger-xlsx';
+import { DATE_FILTER_KEYS, initialDateRange, storeDateRange } from '../../shared/utils/date-filter-persistence';
 
 @Component({
   selector: 'app-account-ledger-page',
@@ -171,6 +172,11 @@ export class AccountLedgerPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    // Kayıtlı tarih aralığı varsa onu, yoksa varsayılanı (son 7 gün) uygula.
+    const range = initialDateRange(DATE_FILTER_KEYS.ledger, 7);
+    this.filterDateFrom.set(range.from);
+    this.filterDateTo.set(range.to);
+
     this.dealersData.load();
     const role = this.auth.user().role;
     const did = this.auth.user().dealerId;
@@ -183,11 +189,20 @@ export class AccountLedgerPageComponent implements OnInit {
   selectDealer(id: string): void {
     this.cancelEditPayment();
     this.clearAdjustmentForm();
-    this.filterDateFrom.set('');
-    this.filterDateTo.set('');
+    // Tarih aralığı kalıcı bir tercihtir; bayi değişiminde sıfırlanmaz.
     this.selectedDealerId.set(id);
     this.closeDealerPicker();
     this.reloadMovements();
+  }
+
+  setLedgerDateFrom(value: string): void {
+    this.filterDateFrom.set(value);
+    storeDateRange(DATE_FILTER_KEYS.ledger, value, this.filterDateTo(), 7);
+  }
+
+  setLedgerDateTo(value: string): void {
+    this.filterDateTo.set(value);
+    storeDateRange(DATE_FILTER_KEYS.ledger, this.filterDateFrom(), value, 7);
   }
 
   /** Input'a tıklanınca tüm liste görünsün diye arama sıfırlanır. */
@@ -547,6 +562,8 @@ export class AccountLedgerPageComponent implements OnInit {
   clearLedgerDateFilter(): void {
     this.filterDateFrom.set('');
     this.filterDateTo.set('');
+    // Kayıt silinir: bir sonraki girişte varsayılan aralık (son 7 gün) döner.
+    storeDateRange(DATE_FILTER_KEYS.ledger, '', '');
   }
 
   exportLedgerToExcel(): void {

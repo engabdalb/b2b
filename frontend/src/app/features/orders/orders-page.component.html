@@ -171,6 +171,18 @@
 
 @if (ordersViewTab() === 'create') {
   <ng-container *appCan="perm.ordersCreate">
+  @if (!orderWindowOpen()) {
+    <div class="orders-window-banner" role="alert">
+      @if (!orderWindowStatus().dayOpen) {
+        {{ 'orders.windowClosedDay' | t }}
+      } @else {
+        {{ 'orders.windowClosedHours' | t: {
+          start: orderWindowStatus().start || '00:00',
+          end: orderWindowStatus().end || '23:59'
+        } }}
+      }
+    </div>
+  }
   <div class="orders-create">
     <div class="orders-create__catalog">
       <div class="orders-create__toolbar">
@@ -377,7 +389,7 @@
 
         <div class="orders-create__footer">
           <button type="button" class="btn btn--secondary" (click)="cancelCreateTab()">{{ 'orders.cancel' | t }}</button>
-          <button type="submit" class="btn btn--primary" [disabled]="saving()">
+          <button type="submit" class="btn btn--primary" [disabled]="saving() || !orderWindowOpen()">
             {{ saving() ? ('orders.saving' | t) : ('common.save' | t) }}
           </button>
         </div>

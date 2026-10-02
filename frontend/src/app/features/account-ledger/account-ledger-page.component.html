@@ -98,7 +98,7 @@
               class="field__input"
               type="date"
               [value]="filterDateFrom()"
-              (input)="filterDateFrom.set($any($event.target).value)"
+              (input)="setLedgerDateFrom($any($event.target).value)"
             />
           </label>
           <label class="ledger-field ledger-field--compact">
@@ -107,7 +107,7 @@
               class="field__input"
               type="date"
               [value]="filterDateTo()"
-              (input)="filterDateTo.set($any($event.target).value)"
+              (input)="setLedgerDateTo($any($event.target).value)"
             />
           </label>
           <button type="button" class="btn btn--secondary" (click)="clearLedgerDateFilter()">

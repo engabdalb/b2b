@@ -43,6 +43,84 @@
   margin-top: 1rem;
 }
 
+/* Navbar kısayolundan gelince yedek kartını kısa süreliğine vurgula. */
+.settings-card--flash {
+  animation: settings-card-flash 2.5s ease-out;
+}
+
+@keyframes settings-card-flash {
+  0%,
+  60% {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft, rgba(37, 99, 235, 0.25));
+  }
+  100% {
+    border-color: var(--border);
+    box-shadow: var(--shadow-sm);
+  }
+}
+
+.settings-card--window {
+  margin-top: 1rem;
+  max-width: 560px;
+}
+
+.order-window__master {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.9rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.order-window__days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.order-window__days--off {
+  opacity: 0.55;
+}
+
+.order-window__row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 110px 110px;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.order-window__row--head {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.order-window__day {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.order-window__time {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.order-window__actions {
+  margin-top: 1rem;
+}
+
+.settings-card__ok {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--success, #16a34a);
+}
+
 .settings-card__title {
   margin: 0;
   font-size: 1rem;

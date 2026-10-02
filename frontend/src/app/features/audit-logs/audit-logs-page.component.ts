@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { AuditLogsDataService } from './audit-logs-data.service';
+import { DATE_FILTER_KEYS, initialDateRange, storeDateRange } from '../../shared/utils/date-filter-persistence';
 
 @Component({
   selector: 'app-audit-logs-page',
@@ -24,10 +25,16 @@ export class AuditLogsPageComponent implements OnInit {
   readonly hasRows = computed(() => this.data.logs().length > 0);
 
   ngOnInit(): void {
+    // Kayıtlı tarih aralığı varsa onu, yoksa varsayılanı (son 7 gün) uygula.
+    const range = initialDateRange(DATE_FILTER_KEYS.audit, 7);
+    this.dateFrom.set(range.from);
+    this.dateTo.set(range.to);
     this.reload();
   }
 
   reload(): void {
+    // Tarih seçimi kalıcı: boşsa kayıt silinir, sonraki girişte varsayılan döner.
+    storeDateRange(DATE_FILTER_KEYS.audit, this.dateFrom(), this.dateTo(), 7);
     const parsedLimit = Number.parseInt(this.limit().trim(), 10);
     this.data.load({
       action: this.action().trim(),

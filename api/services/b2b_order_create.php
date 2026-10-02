@@ -5,6 +5,7 @@ require_once __DIR__ . '/helper/b2b_auth.php';
 require_once __DIR__ . '/helper/b2b_returnable_packaging.php';
 require_once __DIR__ . '/helper/b2b_dealer_unit_discounts.php';
 require_once __DIR__ . '/helper/b2b_product_visibility.php';
+require_once __DIR__ . '/helper/b2b_app_settings.php';
 require_method('POST');
 
 global $pdo;
@@ -13,6 +14,27 @@ $auth = b2b_require_auth();
 
 if (!in_array($auth['role'], ['super_admin', 'dealer'], true)) {
     json_response(['ok' => false, 'error' => 'forbidden', 'message' => 'Sipariş oluşturma yetkiniz yok.'], 403);
+}
+
+/*
+ * Sipariş saat penceresi: yalnızca bayiler için uygulanır (admin muaf).
+ * Ayar okunamazsa sipariş akışı bozulmasın diye açık varsayılır (fail-open).
+ * Kontrol, herhangi bir veritabanı yazması yapılmadan ÖNCE çalışır.
+ */
+if ($auth['role'] === 'dealer') {
+    try {
+        $windowCfg = b2b_app_setting_get($pdo, B2B_SETTING_ORDER_WINDOW);
+        $windowStatus = b2b_order_window_status($windowCfg);
+        if (!$windowStatus['open']) {
+            json_response([
+                'ok' => false,
+                'error' => 'order_window_closed',
+                'message' => b2b_order_window_closed_message($windowStatus),
+            ], 403);
+        }
+    } catch (Throwable $e) {
+        error_log('b2b_order_create pencere kontrolü atlandı: ' . $e->getMessage());
+    }
 }
 
 $body = read_json_body();

@@ -67,6 +67,16 @@ body {
     box-shadow var(--transition);
 }
 
+/* Devre dışı butonlar soluk ve tıklanamaz görünür (tüm varyantlar için). */
+.btn:disabled,
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(35%);
+  box-shadow: none;
+  pointer-events: none;
+}
+
 .btn--primary {
   background: linear-gradient(180deg, var(--accent) 0%, var(--accent-strong) 100%);
   color: #fff;

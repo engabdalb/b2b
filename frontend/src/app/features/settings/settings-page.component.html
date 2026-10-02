@@ -1,6 +1,8 @@
 <app-page-header titleKey="settings.title" subtitleKey="settings.subtitle">
   <ng-container *appCan="perm.settingsEdit">
-    <button type="button" class="btn btn--primary">{{ 'settings.save' | t }}</button>
+    <button type="button" class="btn btn--primary" [disabled]="windowSaving()" (click)="saveOrderWindow()">
+      {{ 'settings.save' | t }}
+    </button>
   </ng-container>
 </app-page-header>
 
@@ -17,7 +19,79 @@
   <p class="hint">{{ 'settings.placeholder' | t }}</p>
 </div>
 
-<div class="settings-card settings-card--backup" *appCan="perm.settingsEdit">
+<div class="settings-card settings-card--window">
+  <h2 class="settings-card__title">{{ 'settings.orderWindowTitle' | t }}</h2>
+  <p class="hint hint--tight">{{ 'settings.orderWindowHint' | t }}</p>
+
+  @if (windowLoading()) {
+    <p class="hint">{{ 'common.loading' | t }}</p>
+  } @else {
+    <label class="order-window__master">
+      <input
+        type="checkbox"
+        name="owEnabled"
+        [(ngModel)]="orderWindow.enabled"
+        [disabled]="auth.isViewer()"
+      />
+      <span>{{ 'settings.orderWindowEnabled' | t }}</span>
+    </label>
+
+    <div class="order-window__days" [class.order-window__days--off]="!orderWindow.enabled">
+      <div class="order-window__row order-window__row--head" aria-hidden="true">
+        <span></span>
+        <span>{{ 'settings.orderWindowStart' | t }}</span>
+        <span>{{ 'settings.orderWindowEnd' | t }}</span>
+      </div>
+      @for (key of dayKeys; track key) {
+        <div class="order-window__row">
+          <label class="order-window__day">
+            <input
+              type="checkbox"
+              [name]="'owOpen' + key"
+              [(ngModel)]="orderWindow.days[key].open"
+              [disabled]="auth.isViewer() || !orderWindow.enabled"
+            />
+            <span>{{ ('settings.day.' + key) | t }}</span>
+          </label>
+          <input
+            class="field__input order-window__time"
+            type="time"
+            [name]="'owStart' + key"
+            [(ngModel)]="orderWindow.days[key].start"
+            [disabled]="auth.isViewer() || !orderWindow.enabled || !orderWindow.days[key].open"
+          />
+          <input
+            class="field__input order-window__time"
+            type="time"
+            [name]="'owEnd' + key"
+            [(ngModel)]="orderWindow.days[key].end"
+            [disabled]="auth.isViewer() || !orderWindow.enabled || !orderWindow.days[key].open"
+          />
+        </div>
+      }
+    </div>
+    <p class="hint hint--tight">{{ 'settings.orderWindowOvernightHint' | t }}</p>
+
+    <div class="order-window__actions" *appCan="perm.settingsEdit">
+      <button type="button" class="btn btn--primary" [disabled]="windowSaving()" (click)="saveOrderWindow()">
+        {{ (windowSaving() ? 'settings.orderWindowSaving' : 'settings.orderWindowSave') | t }}
+      </button>
+    </div>
+    @if (windowSaved()) {
+      <p class="settings-card__ok" role="status">{{ 'settings.orderWindowSaved' | t }}</p>
+    }
+    @if (windowError()) {
+      <p class="settings-card__error" role="alert">{{ windowError() }}</p>
+    }
+  }
+</div>
+
+<div
+  id="backup-card"
+  class="settings-card settings-card--backup"
+  [class.settings-card--flash]="highlightBackup()"
+  *appCan="perm.settingsEdit"
+>
   <h2 class="settings-card__title">{{ 'settings.backupTitle' | t }}</h2>
   <p class="hint hint--tight">{{ 'settings.backupHint' | t }}</p>
   <button
@@ -26,7 +100,7 @@
     [disabled]="backupLoading()"
     (click)="downloadBackup()"
   >
-    {{ (backupLoading() ? 'settings.backupPreparing' : 'settings.backupDownload') | t }}
+    {{ (backupDownloading() ? 'settings.backupDownloading' : backupLoading() ? 'settings.backupPreparing' : 'settings.backupDownload') | t }}
   </button>
   @if (backupError()) {
     <p class="settings-card__error" role="alert">{{ backupError() }}</p>

@@ -34,6 +34,20 @@
     </div>
   </div>
   <div class="topbar__right">
+    <button
+      type="button"
+      class="topbar__backup"
+      *appCan="perm.settingsEdit"
+      (click)="goToBackup()"
+      [attr.title]="'topbar.backupHint' | t"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+      <span class="topbar__backup-label">{{ 'topbar.backup' | t }}</span>
+    </button>
     <label class="topbar__locale" [attr.title]="'topbar.language' | t">
       <span class="topbar__locale-label">{{ 'topbar.language' | t }}</span>
       <select

@@ -9,6 +9,7 @@ import { InvoicesMockService } from './invoices-mock.service';
 import { PageHeaderComponent } from '../../shared/components/page-header/page-header.component';
 import { TranslatePipe } from '../../shared/pipes/translate.pipe';
 import { UnitNamePipe } from '../../shared/pipes/unit-name.pipe';
+import { DATE_FILTER_KEYS, initialDateRange, storeDateRange } from '../../shared/utils/date-filter-persistence';
 @Component({
   selector: 'app-invoices-page',
   standalone: true,
@@ -62,11 +63,16 @@ export class InvoicesPageComponent implements OnInit {
         });
       });
     } else {
-      this.invoicesData.load().subscribe();
+      // Kayıtlı tarih aralığı varsa onu, yoksa varsayılanı (son 7 gün) uygula.
+      const range = initialDateRange(DATE_FILTER_KEYS.invoices, 7);
+      this.filterDateFrom.set(range.from);
+      this.filterDateTo.set(range.to);
+      this.applyFilters();
     }
   }
 
   applyFilters(): void {
+    storeDateRange(DATE_FILTER_KEYS.invoices, this.filterDateFrom(), this.filterDateTo(), 7);
     this.invoicesData
       .load({
         dateFrom: this.filterDateFrom().trim() || undefined,
@@ -84,6 +90,8 @@ export class InvoicesPageComponent implements OnInit {
     this.filterDealerId.set('');
     this.filterStatus.set('');
     this.filterSearch.set('');
+    // Kayıt silinir: bir sonraki girişte varsayılan aralık (son 7 gün) döner.
+    storeDateRange(DATE_FILTER_KEYS.invoices, '', '');
     this.invoicesData.load(null).subscribe();
   }
 
